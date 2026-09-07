@@ -1,0 +1,88 @@
+import 'package:flutter/material.dart';
+import '../models/treino_dia.dart';
+import '../models/exercicios.dart';
+
+class TreinoRepository extends ChangeNotifier {
+  List<TreinoDia> tabela = [
+    TreinoDia(
+      diaSemana: 'Segunda-feira',
+      titulo: 'Treino A',
+      focado: 'Peito e Tríceps',
+      exercicios: [
+        Exercicio(id: '1', nome: 'Supino Reto', grupoMuscular: 'Peitoral', series: 4, repeticoes: 10, carga: 60.0),
+        Exercicio(id: '2', nome: 'Supino Inclinado com Halteres', grupoMuscular: 'Peitoral', series: 3, repeticoes: 12, carga: 22.0),
+        Exercicio(id: '3', nome: 'Tríceps Pulley', grupoMuscular: 'Tríceps', series: 4, repeticoes: 15, carga: 25.0),
+      ],
+    ),
+    TreinoDia(
+      diaSemana: 'Terça-feira',
+      titulo: 'Treino B',
+      focado: 'Costas e Bíceps',
+      exercicios: [
+        Exercicio(id: '4', nome: 'Puxada Alta', grupoMuscular: 'Costas', series: 4, repeticoes: 10, carga: 50.0),
+        Exercicio(id: '5', nome: 'Remada Curvada', grupoMuscular: 'Costas', series: 3, repeticoes: 10, carga: 40.0),
+        Exercicio(id: '6', nome: 'Rosca Direta', grupoMuscular: 'Bíceps', series: 3, repeticoes: 12, carga: 14.0),
+      ],
+    ),
+    TreinoDia(
+      diaSemana: 'Quarta-feira',
+      titulo: 'Treino C',
+      focado: 'Pernas e Core (Calistenia)',
+      exercicios: [
+        Exercicio(id: '7', nome: 'Agachamento Livre', grupoMuscular: 'Pernas', series: 4, repeticoes: 8, carga: 80.0),
+        Exercicio(id: '8', nome: 'Leg Press 45', grupoMuscular: 'Pernas', series: 3, repeticoes: 12, carga: 160.0),
+        Exercicio(id: '9', nome: 'Prancha Abdominal', grupoMuscular: 'Core', series: 3, repeticoes: 60, carga: 0.0),
+      ],
+    ),
+    TreinoDia(
+      diaSemana: 'Quinta-feira',
+      titulo: 'Treino D',
+      focado: 'Ombros e Trapézio',
+      exercicios: [
+        Exercicio(id: '10', nome: 'Desenvolvimento com Halteres', grupoMuscular: 'Ombros', series: 4, repeticoes: 10, carga: 18.0),
+        Exercicio(id: '11', nome: 'Elevação Lateral', grupoMuscular: 'Ombros', series: 4, repeticoes: 15, carga: 10.0),
+      ],
+    ),
+    TreinoDia(
+      diaSemana: 'Sexta-feira',
+      titulo: 'Treino E',
+      focado: 'Calistenia Avançada',
+      exercicios: [
+        Exercicio(id: '12', nome: 'Barra Fixa (Pull-up)', grupoMuscular: 'Costas/Braços', series: 4, repeticoes: 8, carga: 0.0),
+        Exercicio(id: '13', nome: 'Paralelas (Dips)', grupoMuscular: 'Peito/Tríceps', series: 4, repeticoes: 10, carga: 0.0),
+      ],
+    ),
+    TreinoDia(
+      diaSemana: 'Sábado',
+      titulo: 'Cardio & Mobilidade',
+      focado: 'Condicionamento Físico',
+      exercicios: [
+        Exercicio(id: '14', nome: 'Corrida Esteira', grupoMuscular: 'Cardio', series: 1, repeticoes: 30, carga: 0.0),
+      ],
+    ),
+    TreinoDia(
+      diaSemana: 'Domingo',
+      titulo: 'Descanso',
+      focado: 'Recuperação Muscular',
+      exercicios: [],
+    ),
+  ];
+
+  void salvarExercicio(String diaSemana, Exercicio exercicio) {
+    final treino = tabela.firstWhere((t) => t.diaSemana == diaSemana);
+    final index = treino.exercicios.indexWhere((e) => e.id == exercicio.id);
+    
+    if (index >= 0) {
+      treino.exercicios[index] = exercicio;
+    } else {
+      treino.exercicios.add(exercicio);
+    }
+    notifyListeners();
+  }
+
+  void removerExercicio(String diaSemana, String idExercicio) {
+    final treino = tabela.firstWhere((t) => t.diaSemana == diaSemana);
+    treino.exercicios.removeWhere((e) => e.id == idExercicio);
+    notifyListeners();
+  }
+}
