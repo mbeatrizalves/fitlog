@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../models/treino_dia.dart';
 import '../models/exercicios.dart';
+import '../models/treino.dart';
 
 class TreinoRepository extends ChangeNotifier {
-  List<TreinoDia> tabela = [
-    TreinoDia(
-      diaSemana: 'Segunda-feira',
+  final List<Treino> _treinos = [
+    Treino(
+      id: 'treino-a',
       titulo: 'Treino A',
       focado: 'Peito e Tríceps',
       exercicios: [
@@ -14,8 +14,8 @@ class TreinoRepository extends ChangeNotifier {
         Exercicio(id: '3', nome: 'Tríceps Pulley', grupoMuscular: 'Tríceps', series: 4, repeticoes: 15, carga: 25.0),
       ],
     ),
-    TreinoDia(
-      diaSemana: 'Terça-feira',
+    Treino(
+      id: 'treino-b',
       titulo: 'Treino B',
       focado: 'Costas e Bíceps',
       exercicios: [
@@ -24,8 +24,8 @@ class TreinoRepository extends ChangeNotifier {
         Exercicio(id: '6', nome: 'Rosca Direta', grupoMuscular: 'Bíceps', series: 3, repeticoes: 12, carga: 14.0),
       ],
     ),
-    TreinoDia(
-      diaSemana: 'Quarta-feira',
+    Treino(
+      id: 'treino-c',
       titulo: 'Treino C',
       focado: 'Pernas e Core (Calistenia)',
       exercicios: [
@@ -34,44 +34,38 @@ class TreinoRepository extends ChangeNotifier {
         Exercicio(id: '9', nome: 'Prancha Abdominal', grupoMuscular: 'Core', series: 3, repeticoes: 60, carga: 0.0),
       ],
     ),
-    TreinoDia(
-      diaSemana: 'Quinta-feira',
-      titulo: 'Treino D',
-      focado: 'Ombros e Trapézio',
-      exercicios: [
-        Exercicio(id: '10', nome: 'Desenvolvimento com Halteres', grupoMuscular: 'Ombros', series: 4, repeticoes: 10, carga: 18.0),
-        Exercicio(id: '11', nome: 'Elevação Lateral', grupoMuscular: 'Ombros', series: 4, repeticoes: 15, carga: 10.0),
-      ],
-    ),
-    TreinoDia(
-      diaSemana: 'Sexta-feira',
-      titulo: 'Treino E',
-      focado: 'Calistenia Avançada',
-      exercicios: [
-        Exercicio(id: '12', nome: 'Barra Fixa (Pull-up)', grupoMuscular: 'Costas/Braços', series: 4, repeticoes: 8, carga: 0.0),
-        Exercicio(id: '13', nome: 'Paralelas (Dips)', grupoMuscular: 'Peito/Tríceps', series: 4, repeticoes: 10, carga: 0.0),
-      ],
-    ),
-    TreinoDia(
-      diaSemana: 'Sábado',
-      titulo: 'Cardio & Mobilidade',
-      focado: 'Condicionamento Físico',
-      exercicios: [
-        Exercicio(id: '14', nome: 'Corrida Esteira', grupoMuscular: 'Cardio', series: 1, repeticoes: 30, carga: 0.0),
-      ],
-    ),
-    TreinoDia(
-      diaSemana: 'Domingo',
-      titulo: 'Descanso',
-      focado: 'Recuperação Muscular',
-      exercicios: [],
-    ),
   ];
 
-  void salvarExercicio(String diaSemana, Exercicio exercicio) {
-    final treino = tabela.firstWhere((t) => t.diaSemana == diaSemana);
+  List<Treino> get treinos => List.unmodifiable(_treinos);
+
+  Treino? buscarPorId(String id) {
+    try {
+      return _treinos.firstWhere((t) => t.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void salvarTreino(Treino treino) {
+    final index = _treinos.indexWhere((t) => t.id == treino.id);
+    if (index >= 0) {
+      _treinos[index] = treino;
+    } else {
+      _treinos.add(treino);
+    }
+    notifyListeners();
+  }
+
+  void removerTreino(String id) {
+    _treinos.removeWhere((t) => t.id == id);
+    notifyListeners();
+  }
+
+  void salvarExercicio(String treinoId, Exercicio exercicio) {
+    final treino = buscarPorId(treinoId);
+    if (treino == null) return;
+
     final index = treino.exercicios.indexWhere((e) => e.id == exercicio.id);
-    
     if (index >= 0) {
       treino.exercicios[index] = exercicio;
     } else {
@@ -80,8 +74,10 @@ class TreinoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  void removerExercicio(String diaSemana, String idExercicio) {
-    final treino = tabela.firstWhere((t) => t.diaSemana == diaSemana);
+  void removerExercicio(String treinoId, String idExercicio) {
+    final treino = buscarPorId(treinoId);
+    if (treino == null) return;
+
     treino.exercicios.removeWhere((e) => e.id == idExercicio);
     notifyListeners();
   }
