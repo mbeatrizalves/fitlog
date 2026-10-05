@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
-import 'pages/home_page.dart';
+import 'package:go_router/go_router.dart';
+import 'routes/app_router.dart';
 
 void main() {
-  runApp(const FitLogApp());
+  runApp(FitLogApp(router: criarAppRouter()));
 }
 
 class FitLogApp extends StatelessWidget {
-  const FitLogApp({super.key});
+  final GoRouter router;
+
+  const FitLogApp({super.key, required this.router});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'FitLog',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.deepOrange,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
         useMaterial3: true,
       ),
-      home: HomePage(),
+      routerConfig: router,
     );
   }
 }

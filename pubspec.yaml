@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  go_router: ^18.0.2
   provider: ^6.1.2 # Opcional caso queira usar Provider, mas usaremos AnimatedBuilder nativo conforme solicitado.
 
 dev_dependencies:
