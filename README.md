@@ -1,31 +1,70 @@
 # FitLog - Diário de Treinos
 
-Aplicativo desenvolvido em Flutter para acompanhamento de treinos semanais, detalhamento de exercícios e controle de cargas e repetições, contando com uma arquitetura voltada para múltiplos perfis (Usuário e Personal Trainer).
+Aplicativo Flutter para acompanhamento de treinos semanais, com perfis de **Aluno** e **Personal Trainer**. O personal cadastra treinos e os atribui aos dias da semana de cada aluno; o aluno apenas visualiza a própria agenda.
 
-## 👥 Integrantes e Divisão de Atividades (Parte 1)
+## Integrantes e Divisão de Atividades (Parte 1)
 
 * **Maria Beatriz**
-  * **Atividades Desenvolvidas:** Arquitetura geral do projeto (estruturação de pastas), criação dos modelos de dados (`Exercicio` e `TreinoDia`), desenvolvimento do repositório em memória com padrão reativo (`ChangeNotifier`), implementação da tela de listagem semanal de treinos (`HomePage`) e da tela de detalhes do treino (`TreinoDetalhePage`).
+  * Arquitetura geral (`models/`, `pages/`, `repositories/`), modelos de domínio, repositório reativo com `ChangeNotifier` + `AnimatedBuilder`, listagem e detalhe de treinos/exercícios.
 * **Lucas Gabriel**
-  * **Atividades Desenvolvidas:** Implementação do módulo de **Autenticação de Perfis** e controle de sessão (Alternância de visualização entre o painel do Aluno/Usuário e o painel do Personal Trainer).
+  * Módulo de autenticação/sessão (`SessaoRepository`, `LoginPage`), controle de papéis (Aluno/Personal), restrição de rotas e visão somente leitura do aluno.
 * **João Gabriel**
-  * **Atividades Desenvolvidas:** Desenvolvimento do **Painel do Personal Trainer** (interface dedicada para cadastro, edição e remoção de treinos por dia da semana) e refinamento do formulário de exercícios com validações avançadas de cargas e repetições.
+  * Painel do Personal: cadastro de alunos, cadastro de treinos, formulários com validações e atribuição de treino por dia da agenda.
 
----
+## Funcionalidades (Parte 1)
 
-## 📱 Funcionalidades Implementadas (Parte 1)
+* **Login simulado** com e-mail e senha (validação de formulário + feedback).
+* **Personal:** cadastro de treinos, exercícios e alunos, e atribuição treino → dia (sem atribuição = descanso).
+* **Aluno:** visualiza apenas a própria semana e os detalhes dos exercícios; não edita dados.
+* **Navegação** com **GoRouter** e redirects por sessão/papel.
+* **Dados em memória** prontos para substituição por banco na Parte 2.
 
-* **Seleção de Perfil (Autenticação Simulada):** Tela inicial que permite alternar entre o modo **Usuário (Aluno)** (focado em visualizar os treinos do dia e acompanhar cargas) e o modo **Personal Trainer** (focado na prescrição e gerenciamento de treinos).
-* **Listagem Semanal:** Navegação pelos dias da semana (Segunda a Domingo) com visualização rápida dos treinos agendados.
-* **Detalhes do Treino:** Listagem de exercícios específicos de cada dia, exibindo grupos musculares, séries, repetições e cargas estruturadas com divisores.
-* **Formulário de Exercício Personalizado (Visão do Personal):** Tela para cadastro e edição de exercícios com validação de campos e feedback visual dinâmico.
-* **Gerenciamento em Memória:** Dados estáticos gerenciados via padrão reativo simples (`ChangeNotifier` + `AnimatedBuilder`).
+## Contas de demonstração
 
----
+| Perfil   | E-mail               | Senha  |
+|----------|----------------------|--------|
+| Personal | personal@fitlog.com  | 123456 |
+| Aluno 1  | aluno1@fitlog.com    | 123456 |
+| Aluno 2  | aluno2@fitlog.com    | 123456 |
 
-## 🛠️ Instruções de Instalação e Execução
+## Instalação e execução
 
-1. Certifique-se de ter o [Flutter SDK](https://docs.flutter.dev/get-started/install) instalado e configurado em sua máquina.
-2. Clone o repositório para o seu ambiente local:
-   ```bash
-   git clone [https://github.com/seu-usuario/fitlog.git](https://github.com/seu-usuario/fitlog.git)
+### Pré-requisitos
+
+* [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.x)
+* Um dispositivo/emulador (Android, iOS, macOS ou Chrome)
+
+### Passos
+
+```bash
+git clone <url-do-repositorio>
+cd fitlog
+flutter pub get
+flutter run
+```
+
+Para escolher o destino:
+
+```bash
+flutter devices
+flutter run -d macos
+flutter run -d chrome
+```
+
+### Particularidades / limitações
+
+* Os dados **não persistem** após fechar o app (repositório em memória).
+* Autenticação é simulada (comparação local de e-mail/senha), sem backend.
+* Pacote `provider` permanece no `pubspec` como dependência opcional; o estado usa `ChangeNotifier` + `AnimatedBuilder`, conforme padrão do grupo.
+
+## Estrutura do código
+
+```
+lib/
+  main.dart
+  app_state.dart
+  models/
+  pages/
+  repositories/
+  routes/
+```
