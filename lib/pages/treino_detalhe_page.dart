@@ -1,97 +1,129 @@
 import 'package:flutter/material.dart';
-import '../models/treino_dia.dart';
-import '../repositories/treino_repository.dart';
-import 'exercicio_form_page.dart';
+import 'package:go_router/go_router.dart';
+import '../app_state.dart';
 
 class TreinoDetalhePage extends StatelessWidget {
-  final TreinoDia treinoDia;
-  final TreinoRepository repositorio;
+  final String treinoId;
+  final bool somenteLeitura;
 
   const TreinoDetalhePage({
     super.key,
-    required this.treinoDia,
-    required this.repositorio,
+    required this.treinoId,
+    this.somenteLeitura = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final repositorio = AppState.instance.treinos;
+
     return AnimatedBuilder(
       animation: repositorio,
-      builder: (context, child) {
-        // Atualiza a referência do dia atual com base no repositório
-        final treinoAtualizado = repositorio.tabela.firstWhere((t) => t.diaSemana == treinoDia.diaSemana);
+      builder: (context, _) {
+        final treino = repositorio.buscarPorId(treinoId);
+
+        if (treino == null) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Treino'),
+              backgroundColor: Colors.deepOrange,
+              foregroundColor: Colors.white,
+            ),
+            body: const Center(child: Text('Treino não encontrado.')),
+          );
+        }
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(treinoAtualizado.diaSemana),
+            title: Text(treino.titulo),
             backgroundColor: Colors.deepOrange,
             foregroundColor: Colors.white,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                if (somenteLeitura) {
+                  context.go('/meu-treino');
+                } else {
+                  context.go('/treinos');
+                }
+              },
+            ),
+            actions: [
+              if (!somenteLeitura)
+                IconButton(
+                  tooltip: 'Editar treino',
+                  icon: const Icon(Icons.edit),
+                  onPressed: () => context.go('/treinos/$treinoId/editar'),
+                ),
+            ],
           ),
-          body: treinoAtualizado.exercicios.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Nenhum exercício cadastrado para este dia.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                )
-              : ListView.separated(
-                  itemCount: treinoAtualizado.exercicios.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final exercicio = treinoAtualizado.exercicios[index];
-                    return ListTile(
-                      title: Text(
-                        exercicio.nome,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        'Grupo: ${exercicio.grupoMuscular} | Séries: ${exercicio.series} | Reps: ${exercicio.repeticoes} | Carga: ${exercicio.carga}kg',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ExercicioFormPage(
-                                    diaSemana: treinoAtualizado.diaSemana,
-                                    repositorio: repositorio,
-                                    exercicioExistente: exercicio,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  treino.focado,
+                  style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: treino.exercicios.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Nenhum exercício cadastrado neste treino.',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: treino.exercicios.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final exercicio = treino.exercicios[index];
+                          return ListTile(
+                            title: Text(
+                              exercicio.nome,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              'Grupo: ${exercicio.grupoMuscular} | Séries: ${exercicio.series} | '
+                              'Reps: ${exercicio.repeticoes} | Carga: ${exercicio.carga}kg',
+                            ),
+                            trailing: somenteLeitura
+                                ? null
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, color: Colors.blue),
+                                        onPressed: () {
+                                          context.go(
+                                            '/treinos/$treinoId/exercicios/${exercicio.id}',
+                                          );
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete, color: Colors.red),
+                                        onPressed: () {
+                                          repositorio.removerExercicio(treinoId, exercicio.id);
+                                        },
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () {
-                              repositorio.removerExercicio(treinoAtualizado.diaSemana, exercicio.id);
-                            },
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-          floatingActionButton: FloatingActionButton(
-            backgroundColor: Colors.deepOrange,
-            foregroundColor: Colors.white,
-            child: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ExercicioFormPage(
-                    diaSemana: treinoAtualizado.diaSemana,
-                    repositorio: repositorio,
-                  ),
-                ),
-              );
-            },
+              ),
+            ],
           ),
+          floatingActionButton: somenteLeitura
+              ? null
+              : FloatingActionButton(
+                  backgroundColor: Colors.deepOrange,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.add),
+                  onPressed: () => context.go('/treinos/$treinoId/exercicios/novo'),
+                ),
         );
       },
     );

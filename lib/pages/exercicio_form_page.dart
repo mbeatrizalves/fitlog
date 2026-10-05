@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../app_state.dart';
 import '../models/exercicios.dart';
-import '../repositories/treino_repository.dart';
 
 class ExercicioFormPage extends StatefulWidget {
-  final String diaSemana;
-  final TreinoRepository repositorio;
-  final Exercicio? exercicioExistente;
+  final String treinoId;
+  final String? exercicioId;
 
   const ExercicioFormPage({
     super.key,
-    required this.diaSemana,
-    required this.repositorio,
-    this.exercicioExistente,
+    required this.treinoId,
+    this.exercicioId,
   });
 
   @override
@@ -25,44 +24,62 @@ class _ExercicioFormPageState extends State<ExercicioFormPage> {
   late int _series;
   late int _repeticoes;
   late double _carga;
+  Exercicio? _existente;
 
   @override
   void initState() {
     super.initState();
-    _nome = widget.exercicioExistente?.nome ?? '';
-    _grupoMuscular = widget.exercicioExistente?.grupoMuscular ?? '';
-    _series = widget.exercicioExistente?.series ?? 3;
-    _repeticoes = widget.exercicioExistente?.repeticoes ?? 10;
-    _carga = widget.exercicioExistente?.carga ?? 0.0;
+    final treino = AppState.instance.treinos.buscarPorId(widget.treinoId);
+    if (widget.exercicioId != null && treino != null) {
+      try {
+        _existente = treino.exercicios.firstWhere((e) => e.id == widget.exercicioId);
+      } catch (_) {
+        _existente = null;
+      }
+    }
+
+    _nome = _existente?.nome ?? '';
+    _grupoMuscular = _existente?.grupoMuscular ?? '';
+    _series = _existente?.series ?? 3;
+    _repeticoes = _existente?.repeticoes ?? 10;
+    _carga = _existente?.carga ?? 0.0;
   }
 
   void _salvarFormulario() {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
+    if (!_formKey.currentState!.validate()) return;
+    _formKey.currentState!.save();
 
-      final novoExercicio = Exercicio(
-        id: widget.exercicioExistente?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        nome: _nome,
-        grupoMuscular: _grupoMuscular,
-        series: _series,
-        repeticoes: _repeticoes,
-        carga: _carga,
-      );
+    final novoExercicio = Exercicio(
+      id: _existente?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      nome: _nome.trim(),
+      grupoMuscular: _grupoMuscular.trim(),
+      series: _series,
+      repeticoes: _repeticoes,
+      carga: _carga,
+    );
 
-      widget.repositorio.salvarExercicio(widget.diaSemana, novoExercicio);
-      Navigator.pop(context);
-    }
+    AppState.instance.treinos.salvarExercicio(widget.treinoId, novoExercicio);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_existente != null ? 'Exercício atualizado.' : 'Exercício adicionado.'),
+      ),
+    );
+    context.go('/treinos/${widget.treinoId}');
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEdicao = widget.exercicioExistente != null;
+    final isEdicao = _existente != null;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isEdicao ? 'Editar Exercício' : 'Adicionar Exercício'),
         backgroundColor: Colors.deepOrange,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/treinos/${widget.treinoId}'),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -72,9 +89,12 @@ class _ExercicioFormPageState extends State<ExercicioFormPage> {
             children: [
               TextFormField(
                 initialValue: _nome,
-                decoration: const InputDecoration(labelText: 'Nome do Exercício'),
+                decoration: const InputDecoration(
+                  labelText: 'Nome do Exercício',
+                  border: OutlineInputBorder(),
+                ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Por favor, informe o nome do exercício.';
                   }
                   return null;
@@ -84,9 +104,12 @@ class _ExercicioFormPageState extends State<ExercicioFormPage> {
               const SizedBox(height: 12),
               TextFormField(
                 initialValue: _grupoMuscular,
-                decoration: const InputDecoration(labelText: 'Grupo Muscular (ex: Peitoral, Costas)'),
+                decoration: const InputDecoration(
+                  labelText: 'Grupo Muscular (ex: Peitoral, Costas)',
+                  border: OutlineInputBorder(),
+                ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Por favor, informe o grupo muscular.';
                   }
                   return null;
@@ -96,7 +119,10 @@ class _ExercicioFormPageState extends State<ExercicioFormPage> {
               const SizedBox(height: 12),
               TextFormField(
                 initialValue: _series.toString(),
-                decoration: const InputDecoration(labelText: 'Séries'),
+                decoration: const InputDecoration(
+                  labelText: 'Séries',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || int.tryParse(value) == null || int.parse(value) <= 0) {
@@ -109,7 +135,10 @@ class _ExercicioFormPageState extends State<ExercicioFormPage> {
               const SizedBox(height: 12),
               TextFormField(
                 initialValue: _repeticoes.toString(),
-                decoration: const InputDecoration(labelText: 'Repetições / Tempo (Segundos)'),
+                decoration: const InputDecoration(
+                  labelText: 'Repetições / Tempo (Segundos)',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || int.tryParse(value) == null || int.parse(value) <= 0) {
@@ -122,15 +151,20 @@ class _ExercicioFormPageState extends State<ExercicioFormPage> {
               const SizedBox(height: 12),
               TextFormField(
                 initialValue: _carga.toString(),
-                decoration: const InputDecoration(labelText: 'Carga (kg)'),
+                decoration: const InputDecoration(
+                  labelText: 'Carga (kg)',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: (value) {
-                  if (value == null || double.tryParse(value) == null || double.parse(value) < 0) {
+                  if (value == null ||
+                      double.tryParse(value.replaceAll(',', '.')) == null ||
+                      double.parse(value.replaceAll(',', '.')) < 0) {
                     return 'Informe uma carga válida.';
                   }
                   return null;
                 },
-                onSaved: (value) => _carga = double.parse(value!),
+                onSaved: (value) => _carga = double.parse(value!.replaceAll(',', '.')),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
