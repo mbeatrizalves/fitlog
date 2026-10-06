@@ -57,11 +57,16 @@ class _TreinoFormPageState extends State<TreinoFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdicao ? 'Editar Treino' : 'Novo Treino'),
-        backgroundColor: Colors.deepOrange,
-        foregroundColor: Colors.white,
+        title: Text(
+          isEdicao ? 'Editar Treino' : 'Novo Treino',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: colors.primary,
+        foregroundColor: colors.onPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -73,58 +78,144 @@ class _TreinoFormPageState extends State<TreinoFormPage> {
           },
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colors.primaryContainer,
+              colors.surface,
+              colors.secondaryContainer.withValues(alpha: 0.4),
+            ],
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Card(
+                elevation: 0,
+                color: colors.surface.withValues(alpha: 0.94),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  side: BorderSide(color: colors.outlineVariant),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _FormHeader(
+                          icon: Icons.fitness_center,
+                          title: isEdicao ? 'Editar treino' : 'Novo treino',
+                          subtitle: isEdicao
+                              ? 'Atualize as informações deste treino.'
+                              : 'Cadastre um treino para seus alunos.',
+                          colors: colors,
+                        ),
+                        const SizedBox(height: 28),
+                        TextFormField(
+                          initialValue: _titulo,
+                          decoration: const InputDecoration(
+                            labelText: 'Título do treino',
+                            hintText: 'Ex: Treino A',
+                            prefixIcon: Icon(Icons.title),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Informe o título do treino.';
+                            }
+                            return null;
+                          },
+                          onSaved: (value) => _titulo = value!,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          initialValue: _focado,
+                          decoration: const InputDecoration(
+                            labelText: 'Foco do treino',
+                            hintText: 'Ex: Peito e Tríceps',
+                            prefixIcon: Icon(Icons.track_changes),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Informe o foco do treino.';
+                            }
+                            return null;
+                          },
+                          onSaved: (value) => _focado = value!,
+                        ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            onPressed: _salvar,
+                            icon: Icon(isEdicao ? Icons.save : Icons.add),
+                            label: Text(
+                              isEdicao ? 'Salvar alterações' : 'Criar treino',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FormHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final ColorScheme colors;
+
+  const _FormHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 28,
+          backgroundColor: colors.primary,
+          child: Icon(icon, color: colors.onPrimary, size: 28),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextFormField(
-                initialValue: _titulo,
-                decoration: const InputDecoration(
-                  labelText: 'Título do treino',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Informe o título do treino.';
-                  }
-                  return null;
-                },
-                onSaved: (value) => _titulo = value!,
+              Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                initialValue: _focado,
-                decoration: const InputDecoration(
-                  labelText: 'Foco (ex: Peito e Tríceps)',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Informe o foco do treino.';
-                  }
-                  return null;
-                },
-                onSaved: (value) => _focado = value!,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepOrange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: _salvar,
-                child: Text(
-                  isEdicao ? 'Salvar alterações' : 'Criar treino',
-                  style: const TextStyle(fontSize: 16),
-                ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(color: colors.onSurfaceVariant),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
