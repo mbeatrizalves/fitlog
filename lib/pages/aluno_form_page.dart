@@ -34,7 +34,7 @@ class _AlunoFormPageState extends State<AlunoFormPage> {
     _senha = _existente?.senha ?? '';
   }
 
-  void _salvar() {
+  Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
@@ -61,7 +61,16 @@ class _AlunoFormPageState extends State<AlunoFormPage> {
       agenda: _existente?.agenda ?? agendaVazia(),
     );
 
-    AppState.instance.usuarios.salvarAluno(aluno);
+    try {
+      await AppState.instance.usuarios.salvarAluno(aluno);
+    } catch (erro) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível salvar o aluno: $erro')),
+      );
+      return;
+    }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
           content: Text(isEdicao ? 'Aluno atualizado.' : 'Aluno cadastrado.')),

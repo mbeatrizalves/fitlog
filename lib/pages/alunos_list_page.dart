@@ -14,6 +14,7 @@ class AlunosListPage extends StatelessWidget {
       builder: (context, _) {
         final alunos = usuariosRepo.alunos;
         final colors = Theme.of(context).colorScheme;
+        final messenger = ScaffoldMessenger.of(context);
 
         return Scaffold(
           appBar: AppBar(
@@ -77,9 +78,20 @@ class AlunosListPage extends StatelessWidget {
                               trainingDays: diasComTreino,
                               colors: colors,
                               onTap: () => context.go('/alunos/${aluno.id}'),
-                              onDelete: () {
-                                usuariosRepo.removerAluno(aluno.id);
-                                ScaffoldMessenger.of(context).showSnackBar(
+                              onDelete: () async {
+                                try {
+                                  await usuariosRepo.removerAluno(aluno.id);
+                                } catch (erro) {
+                                  if (!messenger.mounted) return;
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Não foi possível remover o aluno: $erro')),
+                                  );
+                                  return;
+                                }
+                                if (!messenger.mounted) return;
+                                messenger.showSnackBar(
                                   SnackBar(
                                     content: Text(
                                       'Aluno "${aluno.nome}" removido.',

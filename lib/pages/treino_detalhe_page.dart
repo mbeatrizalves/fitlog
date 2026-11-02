@@ -21,6 +21,7 @@ class TreinoDetalhePage extends StatelessWidget {
       builder: (context, _) {
         final treino = repositorio.buscarPorId(treinoId);
         final colors = Theme.of(context).colorScheme;
+        final messenger = ScaffoldMessenger.of(context);
 
         if (treino == null) {
           return Scaffold(
@@ -178,11 +179,20 @@ class TreinoDetalhePage extends StatelessWidget {
                                   '/treinos/$treinoId/exercicios/${exercicio.id}',
                                 );
                               },
-                              onDelete: () {
-                                repositorio.removerExercicio(
-                                  treinoId,
-                                  exercicio.id,
-                                );
+                              onDelete: () async {
+                                try {
+                                  await repositorio.removerExercicio(
+                                    treinoId,
+                                    exercicio.id,
+                                  );
+                                } catch (erro) {
+                                  if (!messenger.mounted) return;
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Não foi possível remover o exercício: $erro')),
+                                  );
+                                }
                               },
                             );
                           },

@@ -15,6 +15,7 @@ class TreinosListPage extends StatelessWidget {
       builder: (context, _) {
         final treinos = treinosRepo.treinos;
         final colors = Theme.of(context).colorScheme;
+        final messenger = ScaffoldMessenger.of(context);
 
         return Scaffold(
           appBar: AppBar(
@@ -73,10 +74,21 @@ class TreinosListPage extends StatelessWidget {
                             exerciseCount: treino.exercicios.length,
                             colors: colors,
                             onTap: () => context.go('/treinos/${treino.id}'),
-                            onDelete: () {
-                              usuariosRepo.limparReferenciasTreino(treino.id);
-                              treinosRepo.removerTreino(treino.id);
-                              ScaffoldMessenger.of(context).showSnackBar(
+                            onDelete: () async {
+                              try {
+                                await treinosRepo.removerTreino(treino.id);
+                                usuariosRepo.limparReferenciasTreino(treino.id);
+                              } catch (erro) {
+                                if (!messenger.mounted) return;
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                      content: Text(
+                                          'Não foi possível remover o treino: $erro')),
+                                );
+                                return;
+                              }
+                              if (!messenger.mounted) return;
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(
                                     'Treino "${treino.titulo}" removido.',

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'app_state.dart';
 import 'routes/app_router.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppState.instance.initialize();
   runApp(FitLogApp(router: criarAppRouter()));
 }
 

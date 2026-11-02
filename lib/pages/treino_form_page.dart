@@ -34,11 +34,12 @@ class _TreinoFormPageState extends State<TreinoFormPage> {
         : <Exercicio>[];
   }
 
-  void _salvar() {
+  Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
-    final id = widget.treinoId ?? DateTime.now().millisecondsSinceEpoch.toString();
+    final id =
+        widget.treinoId ?? DateTime.now().millisecondsSinceEpoch.toString();
     final treino = Treino(
       id: id,
       titulo: _titulo.trim(),
@@ -46,7 +47,16 @@ class _TreinoFormPageState extends State<TreinoFormPage> {
       exercicios: _exerciciosExistentes,
     );
 
-    AppState.instance.treinos.salvarTreino(treino);
+    try {
+      await AppState.instance.treinos.salvarTreino(treino);
+    } catch (erro) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível salvar o treino: $erro')),
+      );
+      return;
+    }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(isEdicao ? 'Treino atualizado.' : 'Treino criado.'),

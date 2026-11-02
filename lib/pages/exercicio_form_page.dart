@@ -46,7 +46,7 @@ class _ExercicioFormPageState extends State<ExercicioFormPage> {
     _carga = _existente?.carga ?? 0.0;
   }
 
-  void _salvarFormulario() {
+  Future<void> _salvarFormulario() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
 
@@ -59,7 +59,17 @@ class _ExercicioFormPageState extends State<ExercicioFormPage> {
       carga: _carga,
     );
 
-    AppState.instance.treinos.salvarExercicio(widget.treinoId, novoExercicio);
+    try {
+      await AppState.instance.treinos
+          .salvarExercicio(widget.treinoId, novoExercicio);
+    } catch (erro) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível salvar o exercício: $erro')),
+      );
+      return;
+    }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(_existente != null

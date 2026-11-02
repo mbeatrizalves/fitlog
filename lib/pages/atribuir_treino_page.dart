@@ -34,12 +34,21 @@ class _AtribuirTreinoPageState extends State<AtribuirTreinoPage> {
     }
   }
 
-  void _salvar() {
-    AppState.instance.usuarios.atribuirTreinoAoDia(
-      widget.alunoId,
-      widget.diaSemana,
-      _treinoSelecionado,
-    );
+  Future<void> _salvar() async {
+    try {
+      await AppState.instance.usuarios.atribuirTreinoAoDia(
+        widget.alunoId,
+        widget.diaSemana,
+        _treinoSelecionado,
+      );
+    } catch (erro) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível salvar a agenda: $erro')),
+      );
+      return;
+    }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -241,9 +250,8 @@ class _AssignmentOption extends StatelessWidget {
                     selected ? colors.primary : colors.secondaryContainer,
                 child: Icon(
                   icon,
-                  color: selected
-                      ? colors.onPrimary
-                      : colors.onSecondaryContainer,
+                  color:
+                      selected ? colors.onPrimary : colors.onSecondaryContainer,
                 ),
               ),
               const SizedBox(width: 16),
@@ -264,9 +272,7 @@ class _AssignmentOption extends StatelessWidget {
                 ),
               ),
               Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
+                selected ? Icons.radio_button_checked : Icons.radio_button_off,
                 color: selected ? colors.primary : colors.onSurfaceVariant,
               ),
             ],

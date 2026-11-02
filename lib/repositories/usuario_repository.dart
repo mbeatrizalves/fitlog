@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import '../database/app_database.dart';
 import '../models/dia_aluno.dart';
 import '../models/dias_semana.dart';
 import '../models/papel.dart';
 import '../models/usuario.dart';
 
 class UsuarioRepository extends ChangeNotifier {
+  UsuarioRepository({AppDatabase? database})
+      : _database = database ?? AppDatabase.instance;
+
+  final AppDatabase _database;
+
   final List<Usuario> _usuarios = [
     Usuario(
       id: 'personal-1',
@@ -52,6 +58,20 @@ class UsuarioRepository extends ChangeNotifier {
   List<Usuario> get alunos =>
       _usuarios.where((u) => u.papel == Papel.aluno).toList();
 
+  Future<void> carregar() async {
+    final usuarios = await _database.carregarUsuarios();
+    _usuarios
+      ..clear()
+      ..addAll(usuarios);
+    notifyListeners();
+  }
+
+  Future<void> persistirDadosIniciais() async {
+    for (final usuario in _usuarios) {
+      await _database.salvarUsuario(usuario);
+    }
+  }
+
   Usuario? buscarPorId(String id) {
     try {
       return _usuarios.firstWhere((u) => u.id == id);
@@ -78,13 +98,14 @@ class UsuarioRepository extends ChangeNotifier {
     );
   }
 
-  void salvarAluno(Usuario aluno) {
+  Future<void> salvarAluno(Usuario aluno) async {
     if (aluno.papel != Papel.aluno) return;
 
     if (aluno.agenda.isEmpty) {
       aluno.agenda = agendaVazia();
     }
 
+    await _database.salvarUsuario(aluno);
     final index = _usuarios.indexWhere((u) => u.id == aluno.id);
     if (index >= 0) {
       _usuarios[index] = aluno;
@@ -94,27 +115,39 @@ class UsuarioRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  void removerAluno(String id) {
+  Future<void> removerAluno(String id) async {
     final usuario = buscarPorId(id);
     if (usuario == null || usuario.papel != Papel.aluno) return;
+    await _database.removerUsuario(id);
     _usuarios.removeWhere((u) => u.id == id);
     notifyListeners();
   }
 
-  void atribuirTreinoAoDia(String alunoId, String diaSemana, String? treinoId) {
+  Future<void> atribuirTreinoAoDia(
+      String alunoId, String diaSemana, String? treinoId) async {
     final aluno = buscarPorId(alunoId);
     if (aluno == null || aluno.papel != Papel.aluno) return;
 
-    final dia = aluno.agenda.firstWhere(
-      (d) => d.diaSemana == diaSemana,
-      orElse: () => DiaAluno(diaSemana: diaSemana),
-    );
-
-    if (!aluno.agenda.contains(dia)) {
-      aluno.agenda.add(dia);
+    final agenda = aluno.agenda
+        .map((item) => DiaAluno(
+              diaSemana: item.diaSemana,
+              treinoId: item.diaSemana == diaSemana ? treinoId : item.treinoId,
+            ))
+        .toList();
+    if (!agenda.any((item) => item.diaSemana == diaSemana)) {
+      agenda.add(DiaAluno(diaSemana: diaSemana, treinoId: treinoId));
     }
-
-    dia.treinoId = treinoId;
+    await _database.salvarUsuario(Usuario(
+      id: aluno.id,
+      nome: aluno.nome,
+      email: aluno.email,
+      senha: aluno.senha,
+      papel: aluno.papel,
+      agenda: agenda,
+    ));
+    aluno.agenda
+      ..clear()
+      ..addAll(agenda);
     notifyListeners();
   }
 
@@ -122,9 +155,7 @@ class UsuarioRepository extends ChangeNotifier {
   void limparReferenciasTreino(String treinoId) {
     for (final aluno in alunos) {
       for (final dia in aluno.agenda) {
-        if (dia.treinoId == treinoId) {
-          dia.treinoId = null;
-        }
+        if (dia.treinoId == treinoId) dia.treinoId = null;
       }
     }
     notifyListeners();
