@@ -133,7 +133,7 @@ Future<void> _submeterLogin() async {
                     onPressed: _carregando
                         ? null
                         : () => _preencherAtalho('personal@fitlog.com', '123456'),
-                    icon: const Icon(Icons.fitness_center),
+                    icon: const Icon(AppIcons.workout),
                     label: const Text('Personal'),
                   ),
                   OutlinedButton.icon(
