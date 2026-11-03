@@ -1,35 +1,27 @@
+import 'package:flutter/material.dart';
 import 'repositories/sessao_repository.dart';
 import 'repositories/treino_repository.dart';
 import 'repositories/usuario_repository.dart';
-import 'database/app_database.dart';
 
-/// Estado compartilhado da aplicação (repositórios em memória).
-class AppState {
-  AppState._()
-      : usuarios = UsuarioRepository(),
-        treinos = TreinoRepository() {
-    sessao = SessaoRepository(usuarios);
+class AppState extends ChangeNotifier {
+  static final AppState instance = AppState._internal();
+  AppState._internal();
+
+  final SessaoRepository sessao = SessaoRepository();
+  final UsuarioRepository usuarios = UsuarioRepository();
+  final TreinoRepository treinos = TreinoRepository();
+
+  bool _initialized = false;
+  bool get isInitialized => _initialized;
+
+  Future<void> initialize() async {
+    if (_initialized) return;
+
+    await usuarios.carregar();
+    await treinos.carregar();
+    await sessao.carregar();
+
+    _initialized = true;
+    notifyListeners();
   }
-
-  static final AppState instance = AppState._();
-
-  Future<void>? _initialization;
-
-  Future<void> initialize() => _initialization ??= _initialize();
-
-  Future<void> _initialize() async {
-    await AppDatabase.instance.database;
-    final usuarios = await AppDatabase.instance.carregarUsuarios();
-    if (usuarios.isEmpty) {
-      await treinos.persistirDadosIniciais();
-      await this.usuarios.persistirDadosIniciais();
-    } else {
-      await this.usuarios.carregar();
-      await treinos.carregar();
-    }
-  }
-
-  final UsuarioRepository usuarios;
-  final TreinoRepository treinos;
-  late final SessaoRepository sessao;
 }

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../app_state.dart';
 import '../core/constants/app_icons.dart';
 import '../core/helpers/app_functions.dart';
@@ -18,6 +20,12 @@ class _PersonalHomePageState extends State<PersonalHomePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // Atualiza o estado da tela para alterar o ícone do FloatingActionButton ao trocar de aba
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -30,7 +38,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
     final confirmou = await AppFunctions.confirmarAcao(
       context,
       titulo: 'Sair da Conta',
-      mensagem: 'Deseja realmente encerrar a sessão de Personal?',
+      mensagem: 'Deseja encerrar a sessão do Personal Trainer?',
     );
     if (confirmou && mounted) {
       AppState.instance.sessao.logout();
@@ -94,6 +102,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: ListTile(
+                            onTap: () => context.go('/alunos/${aluno.id}'),
                             leading: CircleAvatar(
                               backgroundColor: Colors.deepPurple.shade50,
                               child: Text(
@@ -117,16 +126,30 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(AppIcons.edit, color: Colors.blue),
-                                  onPressed: () => context.go('/alunos/${aluno.id}'),
+                                  icon: const Icon(AppIcons.calendar,
+                                      color: Colors.deepOrange),
+                                  tooltip: 'Atribuir Treino',
+                                  onPressed: () => context.go(
+                                      '/alunos/${aluno.id}/atribuir-treino'),
                                 ),
                                 IconButton(
-                                  icon: const Icon(AppIcons.delete, color: Colors.red),
+                                  icon: const Icon(AppIcons.edit,
+                                      color: Colors.blue),
+                                  tooltip: 'Editar Aluno',
+                                  onPressed: () =>
+                                      context.go('/alunos/${aluno.id}/editar'),
+                                ),
+                                IconButton(
+                                  icon: const Icon(AppIcons.delete,
+                                      color: Colors.red),
+                                  tooltip: 'Excluir Aluno',
                                   onPressed: () async {
-                                    final confirmou = await AppFunctions.confirmarAcao(
+                                    final confirmou =
+                                        await AppFunctions.confirmarAcao(
                                       context,
                                       titulo: 'Remover Aluno',
-                                      mensagem: 'Deseja remover "${aluno.nome}"?',
+                                      mensagem:
+                                          'Deseja remover "${aluno.nome}"?',
                                     );
                                     if (confirmou && context.mounted) {
                                       await usuariosRepo.removerAluno(aluno.id);
@@ -158,6 +181,7 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: ListTile(
+                            onTap: () => context.go('/treinos/${treino.id}'),
                             leading: const CircleAvatar(
                               child: Icon(AppIcons.workout),
                             ),
@@ -172,20 +196,28 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(AppIcons.edit, color: Colors.blue),
-                                  onPressed: () => context.go('/treinos/${treino.id}'),
+                                  icon: const Icon(AppIcons.edit,
+                                      color: Colors.blue),
+                                  tooltip: 'Editar Treino',
+                                  onPressed: () =>
+                                      context.go('/treinos/${treino.id}/editar'),
                                 ),
                                 IconButton(
-                                  icon: const Icon(AppIcons.delete, color: Colors.red),
+                                  icon: const Icon(AppIcons.delete,
+                                      color: Colors.red),
+                                  tooltip: 'Excluir Treino',
                                   onPressed: () async {
-                                    final confirmou = await AppFunctions.confirmarAcao(
+                                    final confirmou =
+                                        await AppFunctions.confirmarAcao(
                                       context,
                                       titulo: 'Remover Treino',
-                                      mensagem: 'Deseja remover "${treino.titulo}"?',
+                                      mensagem:
+                                          'Deseja remover "${treino.titulo}"?',
                                     );
                                     if (confirmou && context.mounted) {
                                       await treinosRepo.removerTreino(treino.id);
-                                      usuariosRepo.limparReferenciasTreino(treino.id);
+                                      usuariosRepo
+                                          .limparReferenciasTreino(treino.id);
                                       AppFunctions.mostrarSnackBar(
                                         context,
                                         'Treino removido.',
@@ -209,8 +241,14 @@ class _PersonalHomePageState extends State<PersonalHomePage>
                 context.go('/treinos/novo');
               }
             },
-            icon: const Icon(AppIcons.add),
-            label: Text(_tabController.index == 0 ? 'Novo Aluno' : 'Novo Treino'),
+            icon: Icon(
+              _tabController.index == 0
+                  ? Icons.person_add
+                  : Icons.fitness_center,
+            ),
+            label: Text(
+              _tabController.index == 0 ? 'Novo Aluno' : 'Novo Treino',
+            ),
           ),
         );
       },

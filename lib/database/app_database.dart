@@ -1,169 +1,110 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
-import '../models/dia_aluno.dart';
-import '../models/exercicios.dart';
-import '../models/papel.dart';
-import '../models/treino.dart';
-import '../models/usuario.dart';
-
 class AppDatabase {
-  AppDatabase._();
+  static final AppDatabase instance = AppDatabase._init();
+  static Database? _database;
 
-  static final AppDatabase instance = AppDatabase._();
-  Database? _database;
+  AppDatabase._init();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    final path = join(await getDatabasesPath(), 'fitlog.db');
-    _database = await openDatabase(
-      path,
-      version: 1,
-      onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
-      onCreate: (db, version) async {
-        await db.execute('''CREATE TABLE usuarios (
-          id TEXT PRIMARY KEY,
-          nome TEXT NOT NULL,
-          email TEXT NOT NULL COLLATE NOCASE UNIQUE,
-          senha TEXT NOT NULL,
-          papel TEXT NOT NULL
-        )''');
-        await db.execute('''CREATE TABLE treinos (
-          id TEXT PRIMARY KEY,
-          titulo TEXT NOT NULL,
-          focado TEXT NOT NULL
-        )''');
-        await db.execute('''CREATE TABLE exercicios (
-          id TEXT NOT NULL,
-          treino_id TEXT NOT NULL,
-          nome TEXT NOT NULL,
-          grupo_muscular TEXT NOT NULL,
-          series INTEGER NOT NULL,
-          repeticoes INTEGER NOT NULL,
-          carga REAL NOT NULL,
-          PRIMARY KEY (treino_id, id),
-          FOREIGN KEY (treino_id) REFERENCES treinos(id) ON DELETE CASCADE
-        )''');
-        await db.execute('''CREATE TABLE agenda (
-          aluno_id TEXT NOT NULL,
-          dia_semana TEXT NOT NULL,
-          treino_id TEXT,
-          PRIMARY KEY (aluno_id, dia_semana),
-          FOREIGN KEY (aluno_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-          FOREIGN KEY (treino_id) REFERENCES treinos(id) ON DELETE SET NULL
-        )''');
-      },
-    );
+    _database = await _initDB('fitlog.db');
     return _database!;
   }
 
-  Future<List<Usuario>> carregarUsuarios() async {
-    final db = await database;
-    final usuarios = await db.query('usuarios');
-    final agenda = await db.query('agenda');
-    return usuarios.map((row) {
-      final id = row['id'] as String;
-      return Usuario(
-        id: id,
-        nome: row['nome'] as String,
-        email: row['email'] as String,
-        senha: row['senha'] as String,
-        papel: Papel.values.byName(row['papel'] as String),
-        agenda: agenda
-            .where((dia) => dia['aluno_id'] == id)
-            .map((dia) => DiaAluno(
-                  diaSemana: dia['dia_semana'] as String,
-                  treinoId: dia['treino_id'] as String?,
-                ))
-            .toList(),
-      );
-    }).toList();
+  Future<Database> _initDB(String filePath) async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, filePath);
+
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: _createDB,
+    );
   }
 
-  Future<List<Treino>> carregarTreinos() async {
-    final db = await database;
-    final treinos = await db.query('treinos');
-    final exercicios = await db.query('exercicios');
-    return treinos.map((row) {
-      final id = row['id'] as String;
-      return Treino(
-        id: id,
-        titulo: row['titulo'] as String,
-        focado: row['focado'] as String,
-        exercicios: exercicios
-            .where((exercicio) => exercicio['treino_id'] == id)
-            .map((exercicio) => Exercicio(
-                  id: exercicio['id'] as String,
-                  nome: exercicio['nome'] as String,
-                  grupoMuscular: exercicio['grupo_muscular'] as String,
-                  series: exercicio['series'] as int,
-                  repeticoes: exercicio['repeticoes'] as int,
-                  carga: (exercicio['carga'] as num).toDouble(),
-                ))
-            .toList(),
-      );
-    }).toList();
-  }
+  Future<void> _createDB(Database db, int version) async {
+    // 1. Tabela de Usuários (Personal Trainer e Alunos)
+    await db.execute('''
+      CREATE TABLE usuarios (
+        id TEXT PRIMARY KEY,
+        nome TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        senha TEXT NOT NULL,
+        papel TEXT NOT NULL
+      )
+    ''');
 
-  Future<void> salvarUsuario(Usuario usuario) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      final values = {
-        'id': usuario.id,
-        'nome': usuario.nome,
-        'email': usuario.email,
-        'senha': usuario.senha,
-        'papel': usuario.papel.name,
-      };
-      final atualizados = await txn
-          .update('usuarios', values, where: 'id = ?', whereArgs: [usuario.id]);
-      if (atualizados == 0) await txn.insert('usuarios', values);
-      await txn
-          .delete('agenda', where: 'aluno_id = ?', whereArgs: [usuario.id]);
-      for (final dia in usuario.agenda) {
-        await txn.insert('agenda', {
-          'aluno_id': usuario.id,
-          'dia_semana': dia.diaSemana,
-          'treino_id': dia.treinoId,
-        });
-      }
-    });
-  }
+    // 2. Tabela de Treinos
+    await db.execute('''
+      CREATE TABLE treinos (
+        id TEXT PRIMARY KEY,
+        titulo TEXT NOT NULL,
+        focado TEXT NOT NULL
+      )
+    ''');
 
-  Future<void> removerUsuario(String id) async {
-    final db = await database;
-    await db.delete('usuarios', where: 'id = ?', whereArgs: [id]);
-  }
+    // 3. Tabela de Exercícios dos Treinos
+    await db.execute('''
+      CREATE TABLE exercicios (
+        id TEXT PRIMARY KEY,
+        treino_id TEXT NOT NULL,
+        nome TEXT NOT NULL,
+        grupo_muscular TEXT NOT NULL,
+        series INTEGER NOT NULL,
+        repeticoes INTEGER NOT NULL,
+        carga REAL NOT NULL,
+        FOREIGN KEY (treino_id) REFERENCES treinos (id) ON DELETE CASCADE
+      )
+    ''');
 
-  Future<void> salvarTreino(Treino treino) async {
-    final db = await database;
-    await db.transaction((txn) async {
-      final values = {
-        'id': treino.id,
-        'titulo': treino.titulo,
-        'focado': treino.focado,
-      };
-      final atualizados = await txn
-          .update('treinos', values, where: 'id = ?', whereArgs: [treino.id]);
-      if (atualizados == 0) await txn.insert('treinos', values);
-      await txn
-          .delete('exercicios', where: 'treino_id = ?', whereArgs: [treino.id]);
-      for (final exercicio in treino.exercicios) {
-        await txn.insert('exercicios', {
-          'id': exercicio.id,
-          'treino_id': treino.id,
-          'nome': exercicio.nome,
-          'grupo_muscular': exercicio.grupoMuscular,
-          'series': exercicio.series,
-          'repeticoes': exercicio.repeticoes,
-          'carga': exercicio.carga,
-        });
-      }
-    });
-  }
+    // 4. Tabela de Agenda Semanal dos Alunos
+    await db.execute('''
+      CREATE TABLE agenda (
+        id TEXT PRIMARY KEY,
+        aluno_id TEXT NOT NULL,
+        dia_semana TEXT NOT NULL,
+        treino_id TEXT,
+        FOREIGN KEY (aluno_id) REFERENCES usuarios (id) ON DELETE CASCADE,
+        FOREIGN KEY (treino_id) REFERENCES treinos (id) ON DELETE SET NULL
+      )
+    ''');
 
-  Future<void> removerTreino(String id) async {
-    final db = await database;
-    await db.delete('treinos', where: 'id = ?', whereArgs: [id]);
+    // --- SEEDING INICIAL DOS DADOS NO BANCO ---
+
+    // Inserção das contas padrão (1 Personal + 2 Alunos)
+    await db.rawInsert('''
+      INSERT INTO usuarios (id, nome, email, senha, papel) VALUES 
+      ('p1', 'Personal Trainer', 'personal@fitlog.com', '123456', 'personal'),
+      ('a1', 'Aluno 1', 'aluno1@fitlog.com', '123456', 'aluno'),
+      ('a2', 'Aluno 2', 'aluno2@fitlog.com', '123456', 'aluno')
+    ''');
+
+    // Inserção dos treinos padrão (Treino A e Treino B)
+    await db.rawInsert('''
+      INSERT INTO treinos (id, titulo, focado) VALUES 
+      ('t1', 'Treino A', 'Peito e Tríceps'),
+      ('t2', 'Treino B', 'Costas e Bíceps')
+    ''');
+
+    // Inserção dos exercícios correspondentes
+    await db.rawInsert('''
+      INSERT INTO exercicios (id, treino_id, nome, grupo_muscular, series, repeticoes, carga) VALUES 
+      ('e1', 't1', 'Supino Reto', 'Peito', 4, 12, 30.0),
+      ('e2', 't1', 'Tríceps Pulley', 'Tríceps', 3, 15, 20.0),
+      ('e3', 't2', 'Puxada Frontal', 'Costas', 4, 10, 40.0),
+      ('e4', 't2', 'Rosca Direta', 'Bíceps', 3, 12, 12.0)
+    ''');
+
+    // Inserção da agenda inicial atribuída para os dois alunos
+    await db.rawInsert('''
+      INSERT INTO agenda (id, aluno_id, dia_semana, treino_id) VALUES 
+      ('ag1', 'a1', 'segunda', 't1'),
+      ('ag2', 'a1', 'terca', 't2'),
+      ('ag3', 'a1', 'quinta', 't1'),
+      ('ag4', 'a2', 'terca', 't1'),
+      ('ag5', 'a2', 'quinta', 't2')
+    ''');
   }
 }

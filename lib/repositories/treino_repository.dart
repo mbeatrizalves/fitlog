@@ -1,116 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
 import '../database/app_database.dart';
 import '../models/exercicios.dart';
 import '../models/treino.dart';
 
 class TreinoRepository extends ChangeNotifier {
-  TreinoRepository({AppDatabase? database})
-      : _database = database ?? AppDatabase.instance;
-
-  final AppDatabase _database;
-
-  final List<Treino> _treinos = [
-    Treino(
-      id: 'treino-a',
-      titulo: 'Treino A',
-      focado: 'Peito e Tríceps',
-      exercicios: [
-        Exercicio(
-            id: '1',
-            nome: 'Supino Reto',
-            grupoMuscular: 'Peitoral',
-            series: 4,
-            repeticoes: 10,
-            carga: 60.0),
-        Exercicio(
-            id: '2',
-            nome: 'Supino Inclinado com Halteres',
-            grupoMuscular: 'Peitoral',
-            series: 3,
-            repeticoes: 12,
-            carga: 22.0),
-        Exercicio(
-            id: '3',
-            nome: 'Tríceps Pulley',
-            grupoMuscular: 'Tríceps',
-            series: 4,
-            repeticoes: 15,
-            carga: 25.0),
-      ],
-    ),
-    Treino(
-      id: 'treino-b',
-      titulo: 'Treino B',
-      focado: 'Costas e Bíceps',
-      exercicios: [
-        Exercicio(
-            id: '4',
-            nome: 'Puxada Alta',
-            grupoMuscular: 'Costas',
-            series: 4,
-            repeticoes: 10,
-            carga: 50.0),
-        Exercicio(
-            id: '5',
-            nome: 'Remada Curvada',
-            grupoMuscular: 'Costas',
-            series: 3,
-            repeticoes: 10,
-            carga: 40.0),
-        Exercicio(
-            id: '6',
-            nome: 'Rosca Direta',
-            grupoMuscular: 'Bíceps',
-            series: 3,
-            repeticoes: 12,
-            carga: 14.0),
-      ],
-    ),
-    Treino(
-      id: 'treino-c',
-      titulo: 'Treino C',
-      focado: 'Pernas e Core (Calistenia)',
-      exercicios: [
-        Exercicio(
-            id: '7',
-            nome: 'Agachamento Livre',
-            grupoMuscular: 'Pernas',
-            series: 4,
-            repeticoes: 8,
-            carga: 80.0),
-        Exercicio(
-            id: '8',
-            nome: 'Leg Press 45',
-            grupoMuscular: 'Pernas',
-            series: 3,
-            repeticoes: 12,
-            carga: 160.0),
-        Exercicio(
-            id: '9',
-            nome: 'Prancha Abdominal',
-            grupoMuscular: 'Core',
-            series: 3,
-            repeticoes: 60,
-            carga: 0.0),
-      ],
-    ),
-  ];
+  List<Treino> _treinos = [];
 
   List<Treino> get treinos => List.unmodifiable(_treinos);
-
-  Future<void> carregar() async {
-    final treinos = await _database.carregarTreinos();
-    _treinos
-      ..clear()
-      ..addAll(treinos);
-    notifyListeners();
-  }
-
-  Future<void> persistirDadosIniciais() async {
-    for (final treino in _treinos) {
-      await _database.salvarTreino(treino);
-    }
-  }
 
   Treino? buscarPorId(String id) {
     try {
@@ -120,61 +17,120 @@ class TreinoRepository extends ChangeNotifier {
     }
   }
 
-  Future<void> salvarTreino(Treino treino) async {
-    await _database.salvarTreino(treino);
-    final index = _treinos.indexWhere((t) => t.id == treino.id);
-    if (index >= 0) {
-      _treinos[index] = treino;
-    } else {
-      _treinos.add(treino);
+  Future<void> carregar() async {
+    final db = await AppDatabase.instance.database;
+    final resTreinos = await db.query('treinos');
+
+    List<Treino> listaTreinos = [];
+
+    for (var tMap in resTreinos) {
+      final tId = tMap['id'] as String;
+
+      final resExercicios = await db.query(
+        'exercicios',
+        where: 'treino_id = ?',
+        whereArgs: [tId],
+      );
+
+      List<Exercicio> listaExercicios = resExercicios.map((e) {
+        return Exercicio(
+          id: e['id'] as String,
+          nome: e['nome'] as String,
+          grupoMuscular: e['grupo_muscular'] as String,
+          series: e['series'] as int,
+          repeticoes: e['repeticoes'] as int,
+          carga: (e['carga'] as num).toDouble(),
+        );
+      }).toList();
+
+      listaTreinos.add(
+        Treino(
+          id: tId,
+          titulo: tMap['titulo'] as String,
+          focado: tMap['focado'] as String,
+          exercicios: listaExercicios,
+        ),
+      );
     }
+
+    _treinos = listaTreinos;
     notifyListeners();
+  }
+
+  Future<void> cadastrarTreino({
+    required String titulo,
+    required String focado,
+  }) async {
+    final db = await AppDatabase.instance.database;
+    final novoId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    await db.insert('treinos', {
+      'id': novoId,
+      'titulo': titulo,
+      'focado': focado,
+    });
+
+    await carregar();
+  }
+
+  Future<void> atualizarTreino({
+    required String id,
+    required String titulo,
+    required String focado,
+  }) async {
+    final db = await AppDatabase.instance.database;
+
+    await db.update(
+      'treinos',
+      {
+        'titulo': titulo,
+        'focado': focado,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    await carregar();
   }
 
   Future<void> removerTreino(String id) async {
-    await _database.removerTreino(id);
-    _treinos.removeWhere((t) => t.id == id);
-    notifyListeners();
+    final db = await AppDatabase.instance.database;
+
+    await db.delete('treinos', where: 'id = ?', whereArgs: [id]);
+    await db.delete('exercicios', where: 'treino_id = ?', whereArgs: [id]);
+
+    await carregar();
   }
 
-  Future<void> salvarExercicio(String treinoId, Exercicio exercicio) async {
-    final treino = buscarPorId(treinoId);
-    if (treino == null) return;
+  Future<void> adicionarExercicio({
+    required String treinoId,
+    required String nome,
+    required String grupoMuscular,
+    required int series,
+    required int repeticoes,
+    required double carga,
+  }) async {
+    final db = await AppDatabase.instance.database;
+    final exId = DateTime.now().millisecondsSinceEpoch.toString();
 
-    final exercicios = List<Exercicio>.from(treino.exercicios);
-    final index = exercicios.indexWhere((e) => e.id == exercicio.id);
-    if (index >= 0) {
-      exercicios[index] = exercicio;
-    } else {
-      exercicios.add(exercicio);
-    }
-    await _database.salvarTreino(Treino(
-      id: treino.id,
-      titulo: treino.titulo,
-      focado: treino.focado,
-      exercicios: exercicios,
-    ));
-    treino.exercicios
-      ..clear()
-      ..addAll(exercicios);
-    notifyListeners();
+    await db.insert('exercicios', {
+      'id': exId,
+      'treino_id': treinoId,
+      'nome': nome,
+      'grupo_muscular': grupoMuscular,
+      'series': series,
+      'repeticoes': repeticoes,
+      'carga': carga,
+    });
+
+    await carregar();
   }
 
-  Future<void> removerExercicio(String treinoId, String idExercicio) async {
-    final treino = buscarPorId(treinoId);
-    if (treino == null) return;
+  Future<void> removerExercicio(String treinoId, String exercicioId) async {
+    final db = await AppDatabase.instance.database;
 
-    final exercicios =
-        treino.exercicios.where((e) => e.id != idExercicio).toList();
-    await _database.salvarTreino(Treino(
-      id: treino.id,
-      titulo: treino.titulo,
-      focado: treino.focado,
-      exercicios: exercicios,
-    ));
-    treino.exercicios
-      ..clear()
-      ..addAll(exercicios);
-    notifyListeners();
+    await db.delete('exercicios', where: 'id = ?', whereArgs: [exercicioId]);
+
+    await carregar();
   }
 }

@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../app_state.dart';
-import '../models/exercicios.dart';
+import '../core/constants/app_icons.dart';
+import '../core/helpers/app_functions.dart';
+import '../core/widgets/app_widgets.dart';
 
 class ExercicioFormPage extends StatefulWidget {
   final String treinoId;
-  final String? exercicioId;
 
-  const ExercicioFormPage({
-    super.key,
-    required this.treinoId,
-    this.exercicioId,
-  });
+  const ExercicioFormPage({super.key, required this.treinoId});
 
   @override
   State<ExercicioFormPage> createState() => _ExercicioFormPageState();
@@ -19,282 +16,128 @@ class ExercicioFormPage extends StatefulWidget {
 
 class _ExercicioFormPageState extends State<ExercicioFormPage> {
   final _formKey = GlobalKey<FormState>();
-  late String _nome;
-  late String _grupoMuscular;
-  late int _series;
-  late int _repeticoes;
-  late double _carga;
-  Exercicio? _existente;
+  final _nomeController = TextEditingController();
+  final _grupoMuscularController = TextEditingController();
+  final _seriesController = TextEditingController();
+  final _repeticoesController = TextEditingController();
+  final _cargaController = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    final treino = AppState.instance.treinos.buscarPorId(widget.treinoId);
-    if (widget.exercicioId != null && treino != null) {
-      try {
-        _existente =
-            treino.exercicios.firstWhere((e) => e.id == widget.exercicioId);
-      } catch (_) {
-        _existente = null;
-      }
-    }
-
-    _nome = _existente?.nome ?? '';
-    _grupoMuscular = _existente?.grupoMuscular ?? '';
-    _series = _existente?.series ?? 3;
-    _repeticoes = _existente?.repeticoes ?? 10;
-    _carga = _existente?.carga ?? 0.0;
+  void dispose() {
+    _nomeController.dispose();
+    _grupoMuscularController.dispose();
+    _seriesController.dispose();
+    _repeticoesController.dispose();
+    _cargaController.dispose();
+    super.dispose();
   }
 
-  Future<void> _salvarFormulario() async {
+  Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
-    _formKey.currentState!.save();
 
-    final novoExercicio = Exercicio(
-      id: _existente?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      nome: _nome.trim(),
-      grupoMuscular: _grupoMuscular.trim(),
-      series: _series,
-      repeticoes: _repeticoes,
-      carga: _carga,
+    final series = int.tryParse(_seriesController.text.trim()) ?? 0;
+    final repeticoes = int.tryParse(_repeticoesController.text.trim()) ?? 0;
+    final carga = double.tryParse(_cargaController.text.trim()) ?? 0.0;
+
+    await AppState.instance.treinos.adicionarExercicio(
+      treinoId: widget.treinoId,
+      nome: _nomeController.text.trim(),
+      grupoMuscular: _grupoMuscularController.text.trim(),
+      series: series,
+      repeticoes: repeticoes,
+      carga: carga,
     );
 
-    try {
-      await AppState.instance.treinos
-          .salvarExercicio(widget.treinoId, novoExercicio);
-    } catch (erro) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Não foi possível salvar o exercício: $erro')),
+    if (mounted) {
+      AppFunctions.mostrarSnackBar(
+        context,
+        'Exercício cadastrado com sucesso.',
       );
-      return;
+      context.pop();
     }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_existente != null
-            ? 'Exercício atualizado.'
-            : 'Exercício adicionado.'),
-      ),
-    );
-    context.go('/treinos/${widget.treinoId}');
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEdicao = _existente != null;
     final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          isEdicao ? 'Editar Exercício' : 'Adicionar Exercício',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: colors.primary,
-        foregroundColor: colors.onPrimary,
+        title: const Text('Novo Exercício'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/treinos/${widget.treinoId}'),
+          onPressed: () => context.pop(),
         ),
       ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colors.primaryContainer,
-              colors.surface,
-              colors.secondaryContainer.withValues(alpha: 0.4),
-            ],
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Card(
-                elevation: 0,
-                color: colors.surface.withValues(alpha: 0.94),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  side: BorderSide(color: colors.outlineVariant),
-                ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              Card(
+                color: colors.secondaryContainer.withOpacity(0.4),
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _ExerciseFormHeader(
-                          isEdicao: isEdicao,
-                          colors: colors,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      CustomTextField(
+                        controller: _nomeController,
+                        label: 'Nome do exercício',
+                        prefixIcon: AppIcons.exercise,
+                        validator: (v) =>
+                            AppFunctions.validarCampoObrigatorio(v, 'Nome'),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _grupoMuscularController,
+                        label: 'Grupo muscular (ex: Peito, Perne)',
+                        prefixIcon: Icons.fitness_center,
+                        validator: (v) => AppFunctions.validarCampoObrigatorio(
+                          v,
+                          'Grupo muscular',
                         ),
-                        const SizedBox(height: 28),
-                        TextFormField(
-                          initialValue: _nome,
-                          decoration: const InputDecoration(
-                            labelText: 'Nome do exercício',
-                            hintText: 'Ex: Supino reto',
-                            prefixIcon: Icon(Icons.directions_run),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Por favor, informe o nome do exercício.';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) => _nome = value!,
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _seriesController,
+                        label: 'Séries (ex: 4)',
+                        prefixIcon: Icons.numbers,
+                        validator: (v) =>
+                            AppFunctions.validarCampoObrigatorio(v, 'Séries'),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _repeticoesController,
+                        label: 'Repetições (ex: 12)',
+                        prefixIcon: Icons.repeat,
+                        validator: (v) => AppFunctions.validarCampoObrigatorio(
+                          v,
+                          'Repetições',
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: _grupoMuscular,
-                          decoration: const InputDecoration(
-                            labelText: 'Grupo muscular',
-                            hintText: 'Ex: Peitoral, Costas',
-                            prefixIcon: Icon(Icons.accessibility_new),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Por favor, informe o grupo muscular.';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) => _grupoMuscular = value!,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: _series.toString(),
-                          decoration: const InputDecoration(
-                            labelText: 'Séries',
-                            prefixIcon: Icon(Icons.repeat),
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null ||
-                                int.tryParse(value) == null ||
-                                int.parse(value) <= 0) {
-                              return 'Informe um número válido de séries.';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) => _series = int.parse(value!),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: _repeticoes.toString(),
-                          decoration: const InputDecoration(
-                            labelText: 'Repetições / Tempo (segundos)',
-                            prefixIcon: Icon(Icons.format_list_numbered),
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null ||
-                                int.tryParse(value) == null ||
-                                int.parse(value) <= 0) {
-                              return 'Informe um número válido de repetições.';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) => _repeticoes = int.parse(value!),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          initialValue: _carga.toString(),
-                          decoration: const InputDecoration(
-                            labelText: 'Carga (kg)',
-                            hintText: 'Ex: 20,5',
-                            prefixIcon: Icon(Icons.fitness_center),
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          validator: (value) {
-                            if (value == null ||
-                                double.tryParse(value.replaceAll(',', '.')) ==
-                                    null ||
-                                double.parse(value.replaceAll(',', '.')) < 0) {
-                              return 'Informe uma carga válida.';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) => _carga =
-                              double.parse(value!.replaceAll(',', '.')),
-                        ),
-                        const SizedBox(height: 28),
-                        SizedBox(
-                          height: 52,
-                          child: ElevatedButton.icon(
-                            onPressed: _salvarFormulario,
-                            icon: Icon(isEdicao ? Icons.save : Icons.add),
-                            label: Text(
-                              isEdicao
-                                  ? 'Salvar alterações'
-                                  : 'Adicionar exercício',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _cargaController,
+                        label: 'Carga em kg (ex: 25.0)',
+                        prefixIcon: AppIcons.workout,
+                        validator: (v) =>
+                            AppFunctions.validarCampoObrigatorio(v, 'Carga'),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ExerciseFormHeader extends StatelessWidget {
-  final bool isEdicao;
-  final ColorScheme colors;
-
-  const _ExerciseFormHeader({
-    required this.isEdicao,
-    required this.colors,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 28,
-          backgroundColor: colors.primary,
-          child: Icon(
-            isEdicao ? Icons.edit : Icons.add,
-            color: colors.onPrimary,
-            size: 28,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isEdicao ? 'Editar exercício' : 'Novo exercício',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                isEdicao
-                    ? 'Atualize os dados deste exercício.'
-                    : 'Adicione um exercício ao treino.',
-                style: TextStyle(color: colors.onSurfaceVariant),
+              const SizedBox(height: 24),
+              PrimaryButton(
+                label: 'Adicionar Exercício',
+                icon: AppIcons.add,
+                onPressed: _salvar,
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

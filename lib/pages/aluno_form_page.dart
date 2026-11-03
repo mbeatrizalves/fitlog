@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../app_state.dart';
-import '../models/dias_semana.dart';
-import '../models/papel.dart';
-import '../models/usuario.dart';
+import '../core/constants/app_icons.dart';
+import '../core/helpers/app_functions.dart';
+import '../core/widgets/app_widgets.dart';
 
 class AlunoFormPage extends StatefulWidget {
   final String? alunoId;
@@ -16,66 +16,68 @@ class AlunoFormPage extends StatefulWidget {
 
 class _AlunoFormPageState extends State<AlunoFormPage> {
   final _formKey = GlobalKey<FormState>();
-  late String _nome;
-  late String _email;
-  late String _senha;
-  Usuario? _existente;
+  late final TextEditingController _nomeController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _senhaController;
 
-  bool get isEdicao => widget.alunoId != null;
+  bool get _ehEdicao => widget.alunoId != null;
 
   @override
   void initState() {
     super.initState();
-    if (widget.alunoId != null) {
-      _existente = AppState.instance.usuarios.buscarPorId(widget.alunoId!);
-    }
-    _nome = _existente?.nome ?? '';
-    _email = _existente?.email ?? '';
-    _senha = _existente?.senha ?? '';
+    final aluno = widget.alunoId != null
+        ? AppState.instance.usuarios.buscarPorId(widget.alunoId!)
+        : null;
+
+    _nomeController = TextEditingController(text: aluno?.nome ?? '');
+    _emailController = TextEditingController(text: aluno?.email ?? '');
+    _senhaController = TextEditingController(text: aluno?.senha ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _emailController.dispose();
+    _senhaController.dispose();
+    super.dispose();
   }
 
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
-    _formKey.currentState!.save();
 
-    final email = _email.trim();
-    if (AppState.instance.usuarios
-        .emailEmUso(email, ignorarId: widget.alunoId)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Este e-mail já está em uso.'),
-          backgroundColor: Colors.red,
-        ),
+    final usuariosRepo = AppState.instance.usuarios;
+    final emailDigitado = _emailController.text.trim();
+    final senhaDigitada = _senhaController.text.trim();
+    final nomeDigitado = _nomeController.text.trim();
+
+    if (_ehEdicao) {
+      await usuariosRepo.atualizarAluno(
+        id: widget.alunoId!,
+        nome: nomeDigitado,
+        email: emailDigitado,
+        senha: senhaDigitada,
       );
-      return;
+    } else {
+      await usuariosRepo.cadastrarAluno(
+        nome: nomeDigitado,
+        email: emailDigitado,
+        senha: senhaDigitada,
+      );
     }
 
-    final id =
-        widget.alunoId ?? DateTime.now().millisecondsSinceEpoch.toString();
-    final aluno = Usuario(
-      id: id,
-      nome: _nome.trim(),
-      email: email,
-      senha: _senha,
-      papel: Papel.aluno,
-      agenda: _existente?.agenda ?? agendaVazia(),
-    );
-
-    try {
-      await AppState.instance.usuarios.salvarAluno(aluno);
-    } catch (erro) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Não foi possível salvar o aluno: $erro')),
+    if (mounted) {
+      AppFunctions.mostrarSnackBar(
+        context,
+        _ehEdicao
+            ? 'Aluno atualizado com sucesso.'
+            : 'Aluno cadastrado! Login liberado.',
       );
-      return;
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/personal/home');
+      }
     }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(isEdicao ? 'Aluno atualizado.' : 'Aluno cadastrado.')),
-    );
-    context.go('/alunos/$id');
   }
 
   @override
@@ -84,186 +86,66 @@ class _AlunoFormPageState extends State<AlunoFormPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          isEdicao ? 'Editar Aluno' : 'Novo Aluno',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: colors.primary,
-        foregroundColor: colors.onPrimary,
+        title: Text(_ehEdicao ? 'Editar Aluno' : 'Novo Aluno'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (isEdicao) {
-              context.go('/alunos/${widget.alunoId}');
+            if (context.canPop()) {
+              context.pop();
             } else {
-              context.go('/alunos');
+              context.go('/personal/home');
             }
           },
         ),
       ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colors.primaryContainer,
-              colors.surface,
-              colors.secondaryContainer.withValues(alpha: 0.4),
-            ],
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Card(
-                elevation: 0,
-                color: colors.surface.withValues(alpha: 0.94),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  side: BorderSide(color: colors.outlineVariant),
-                ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              Card(
+                color: colors.secondaryContainer.withOpacity(0.4),
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _StudentFormHeader(
-                          isEdicao: isEdicao,
-                          colors: colors,
-                        ),
-                        const SizedBox(height: 28),
-                        TextFormField(
-                          initialValue: _nome,
-                          decoration: const InputDecoration(
-                            labelText: 'Nome',
-                            hintText: 'Ex: Ana Silva',
-                            prefixIcon: Icon(Icons.person_outline),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Informe o nome do aluno.';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) => _nome = value!,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          initialValue: _email,
-                          decoration: const InputDecoration(
-                            labelText: 'E-mail',
-                            hintText: 'aluno@exemplo.com',
-                            prefixIcon: Icon(Icons.email_outlined),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Informe o e-mail.';
-                            }
-                            if (!value.contains('@')) {
-                              return 'Informe um e-mail válido.';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) => _email = value!,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          initialValue: _senha,
-                          decoration: const InputDecoration(
-                            labelText: 'Senha',
-                            hintText: 'Defina uma senha',
-                            prefixIcon: Icon(Icons.lock_outline),
-                          ),
-                          obscureText: true,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Informe a senha.';
-                            }
-                            if (value.length < 4) {
-                              return 'A senha deve ter ao menos 4 caracteres.';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) => _senha = value!,
-                        ),
-                        const SizedBox(height: 28),
-                        SizedBox(
-                          height: 52,
-                          child: ElevatedButton.icon(
-                            onPressed: _salvar,
-                            icon:
-                                Icon(isEdicao ? Icons.save : Icons.person_add),
-                            label: Text(
-                              isEdicao
-                                  ? 'Salvar alterações'
-                                  : 'Cadastrar aluno',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      CustomTextField(
+                        controller: _nomeController,
+                        label: 'Nome completo',
+                        prefixIcon: AppIcons.user,
+                        validator: (v) =>
+                            AppFunctions.validarCampoObrigatorio(v, 'Nome'),
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _emailController,
+                        label: 'E-mail',
+                        prefixIcon: Icons.email,
+                        validator: AppFunctions.validarEmail,
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: _senhaController,
+                        label: 'Senha de Acesso',
+                        prefixIcon: AppIcons.login,
+                        obscureText: true,
+                        validator: AppFunctions.validarSenha,
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StudentFormHeader extends StatelessWidget {
-  final bool isEdicao;
-  final ColorScheme colors;
-
-  const _StudentFormHeader({
-    required this.isEdicao,
-    required this.colors,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 28,
-          backgroundColor: colors.primary,
-          child: Icon(
-            isEdicao ? Icons.edit : Icons.person_add,
-            color: colors.onPrimary,
-            size: 28,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isEdicao ? 'Editar aluno' : 'Novo aluno',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                isEdicao
-                    ? 'Atualize os dados deste aluno.'
-                    : 'Cadastre um aluno para acompanhar seus treinos.',
-                style: TextStyle(color: colors.onSurfaceVariant),
+              const SizedBox(height: 24),
+              PrimaryButton(
+                label: _ehEdicao ? 'Salvar Alterações' : 'Cadastrar Aluno',
+                icon: AppIcons.add,
+                onPressed: _salvar,
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

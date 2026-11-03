@@ -13,6 +13,7 @@ import '../pages/treino_form_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
+  refreshListenable: AppState.instance.sessao, // Essencial para atualizar as rotas ao mudar o estado de sessão
   redirect: (BuildContext context, GoRouterState state) {
     final sessao = AppState.instance.sessao;
     final estaLogado = sessao.estaLogado;

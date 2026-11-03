@@ -1,284 +1,143 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../app_state.dart';
+import '../core/constants/app_icons.dart';
+import '../core/helpers/app_functions.dart';
+import '../core/widgets/app_widgets.dart';
+import '../models/dia_aluno.dart';
 import '../models/dias_semana.dart';
 
 class AtribuirTreinoPage extends StatefulWidget {
   final String alunoId;
-  final String diaSemana;
 
-  const AtribuirTreinoPage({
-    super.key,
-    required this.alunoId,
-    required this.diaSemana,
-  });
+  const AtribuirTreinoPage({super.key, required this.alunoId});
 
   @override
   State<AtribuirTreinoPage> createState() => _AtribuirTreinoPageState();
 }
 
 class _AtribuirTreinoPageState extends State<AtribuirTreinoPage> {
-  String? _treinoSelecionado;
-
-  @override
-  void initState() {
-    super.initState();
-    final aluno = AppState.instance.usuarios.buscarPorId(widget.alunoId);
-    if (aluno != null) {
-      for (final dia in aluno.agenda) {
-        if (dia.diaSemana == widget.diaSemana) {
-          _treinoSelecionado = dia.treinoId;
-          break;
-        }
-      }
-    }
-  }
-
-  Future<void> _salvar() async {
-    try {
-      await AppState.instance.usuarios.atribuirTreinoAoDia(
-        widget.alunoId,
-        widget.diaSemana,
-        _treinoSelecionado,
-      );
-    } catch (erro) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Não foi possível salvar a agenda: $erro')),
-      );
-      return;
-    }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _treinoSelecionado == null
-              ? 'Dia marcado como descanso.'
-              : 'Treino atribuído com sucesso.',
-        ),
-      ),
-    );
-    context.go('/alunos/${widget.alunoId}');
-  }
-
   @override
   Widget build(BuildContext context) {
-    final treinos = AppState.instance.treinos.treinos;
-    final rotulo = rotulosDiasSemana[widget.diaSemana] ?? widget.diaSemana;
-    final colors = Theme.of(context).colorScheme;
+    final usuariosRepo = AppState.instance.usuarios;
+    final treinosRepo = AppState.instance.treinos;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Atribuir — $rotulo',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: colors.primary,
-        foregroundColor: colors.onPrimary,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/alunos/${widget.alunoId}'),
-        ),
-      ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colors.primaryContainer,
-              colors.surface,
-              colors.secondaryContainer.withValues(alpha: 0.4),
-            ],
+    return AnimatedBuilder(
+      animation: Listenable.merge([usuariosRepo, treinosRepo]),
+      builder: (context, _) {
+        final aluno = usuariosRepo.buscarPorId(widget.alunoId);
+        final treinos = treinosRepo.treinos;
+        final colors = Theme.of(context).colorScheme;
+
+        if (aluno == null) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Atribuir Treino'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/personal/home');
+                  }
+                },
+              ),
+            ),
+            body: const EmptyStateWidget(
+              mensagem: 'Aluno não encontrado.',
+              icon: AppIcons.error,
+            ),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Agenda — ${aluno.nome}'),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/personal/home');
+                }
+              },
+            ),
           ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _AssignmentHeader(dayLabel: rotulo, colors: colors),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Escolha uma opção',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+          body: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: DiasSemana.values.length,
+            itemBuilder: (context, index) {
+              final diaEnum = DiasSemana.values[index];
+
+              DiaAluno? itemAgenda;
+              for (final item in aluno.agenda) {
+                if (item.diaSemana == diaEnum.name || item.diaSemana == diaEnum) {
+                  itemAgenda = item;
+                  break;
+                }
+              }
+
+              final treinoIdAtual = itemAgenda?.treinoId;
+              final treinoAtual = treinoIdAtual != null
+                  ? treinosRepo.buscarPorId(treinoIdAtual)
+                  : null;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                color: colors.surface.withOpacity(0.94),
+                child: ListTile(
+                  title: Text(
+                    diaEnum.rotulo,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 12),
-                  _AssignmentOption(
-                    icon: Icons.weekend_outlined,
-                    title: 'Descanso',
-                    subtitle: 'Nenhum treino atribuído neste dia',
-                    selected: _treinoSelecionado == null,
-                    colors: colors,
-                    onTap: () => setState(() => _treinoSelecionado = null),
+                  subtitle: Text(
+                    treinoAtual != null ? treinoAtual.titulo : 'Dia de Descanso',
+                    style: TextStyle(
+                      color: treinoAtual != null ? colors.primary : Colors.grey,
+                      fontWeight:
+                          treinoAtual != null ? FontWeight.w600 : FontWeight.normal,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  ...treinos.map(
-                    (treino) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _AssignmentOption(
-                        icon: Icons.fitness_center,
-                        title: treino.titulo,
-                        subtitle: treino.focado,
-                        selected: _treinoSelecionado == treino.id,
-                        colors: colors,
-                        onTap: () => setState(
-                          () => _treinoSelecionado = treino.id,
+                  trailing: DropdownButton<String?>(
+                    value: treinos.any((t) => t.id == treinoIdAtual)
+                        ? treinoIdAtual
+                        : null,
+                    hint: const Text('Selecione'),
+                    underline: const SizedBox(),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Descanso'),
+                      ),
+                      ...treinos.map(
+                        (t) => DropdownMenuItem<String?>(
+                          value: t.id,
+                          child: Text(t.titulo),
                         ),
                       ),
-                    ),
+                    ],
+                    onChanged: (novoTreinoId) async {
+                      await usuariosRepo.atribuirTreinoAgenda(
+                        alunoId: aluno.id,
+                        diaSemana: diaEnum,
+                        treinoId: novoTreinoId,
+                      );
+                      if (context.mounted) {
+                        AppFunctions.mostrarSnackBar(
+                          context,
+                          'Agenda atualizada para ${diaEnum.rotulo}.',
+                        );
+                      }
+                    },
                   ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 52,
-                    child: ElevatedButton.icon(
-                      onPressed: _salvar,
-                      icon: const Icon(Icons.save),
-                      label: const Text('Salvar atribuição'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AssignmentHeader extends StatelessWidget {
-  final String dayLabel;
-  final ColorScheme colors;
-
-  const _AssignmentHeader({
-    required this.dayLabel,
-    required this.colors,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: colors.surface.withValues(alpha: 0.94),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: colors.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: colors.primary,
-              child: Icon(Icons.calendar_month, color: colors.onPrimary),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Agenda do aluno',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Configure o treino de $dayLabel.',
-                    style: TextStyle(color: colors.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AssignmentOption extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final ColorScheme colors;
-  final VoidCallback onTap;
-
-  const _AssignmentOption({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.colors,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: selected
-          ? colors.primaryContainer
-          : colors.surface.withValues(alpha: 0.94),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(
-          color: selected ? colors.primary : colors.outlineVariant,
-          width: selected ? 1.5 : 1,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor:
-                    selected ? colors.primary : colors.secondaryContainer,
-                child: Icon(
-                  icon,
-                  color:
-                      selected ? colors.onPrimary : colors.onSecondaryContainer,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(color: colors.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected ? colors.primary : colors.onSurfaceVariant,
-              ),
-            ],
+              );
+            },
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
 import '../database/app_database.dart';
 import '../models/dia_aluno.dart';
 import '../models/dias_semana.dart';
@@ -6,71 +7,9 @@ import '../models/papel.dart';
 import '../models/usuario.dart';
 
 class UsuarioRepository extends ChangeNotifier {
-  UsuarioRepository({AppDatabase? database})
-      : _database = database ?? AppDatabase.instance;
+  List<Usuario> _usuarios = [];
 
-  final AppDatabase _database;
-
-  final List<Usuario> _usuarios = [
-    Usuario(
-      id: 'personal-1',
-      nome: 'Personal FitLog',
-      email: 'personal@fitlog.com',
-      senha: '123456',
-      papel: Papel.personal,
-    ),
-    Usuario(
-      id: 'aluno-1',
-      nome: 'Ana Aluna',
-      email: 'aluno1@fitlog.com',
-      senha: '123456',
-      papel: Papel.aluno,
-      agenda: [
-        DiaAluno(diaSemana: 'Segunda-feira', treinoId: 'treino-a'),
-        DiaAluno(diaSemana: 'Terca-feira', treinoId: 'treino-b'),
-        DiaAluno(diaSemana: 'Quarta-feira'),
-        DiaAluno(diaSemana: 'Quinta-feira', treinoId: 'treino-c'),
-        DiaAluno(diaSemana: 'Sexta-feira', treinoId: 'treino-a'),
-        DiaAluno(diaSemana: 'Sabado'),
-        DiaAluno(diaSemana: 'Domingo'),
-      ],
-    ),
-    Usuario(
-      id: 'aluno-2',
-      nome: 'Bruno Aluno',
-      email: 'aluno2@fitlog.com',
-      senha: '123456',
-      papel: Papel.aluno,
-      agenda: [
-        DiaAluno(diaSemana: 'Segunda-feira', treinoId: 'treino-b'),
-        DiaAluno(diaSemana: 'Terca-feira'),
-        DiaAluno(diaSemana: 'Quarta-feira', treinoId: 'treino-c'),
-        DiaAluno(diaSemana: 'Quinta-feira'),
-        DiaAluno(diaSemana: 'Sexta-feira', treinoId: 'treino-b'),
-        DiaAluno(diaSemana: 'Sabado', treinoId: 'treino-a'),
-        DiaAluno(diaSemana: 'Domingo'),
-      ],
-    ),
-  ];
-
-  List<Usuario> get usuarios => List.unmodifiable(_usuarios);
-
-  List<Usuario> get alunos =>
-      _usuarios.where((u) => u.papel == Papel.aluno).toList();
-
-  Future<void> carregar() async {
-    final usuarios = await _database.carregarUsuarios();
-    _usuarios
-      ..clear()
-      ..addAll(usuarios);
-    notifyListeners();
-  }
-
-  Future<void> persistirDadosIniciais() async {
-    for (final usuario in _usuarios) {
-      await _database.salvarUsuario(usuario);
-    }
-  }
+  List<Usuario> get alunos => _usuarios.where((u) => u.isAluno).toList();
 
   Usuario? buscarPorId(String id) {
     try {
@@ -80,84 +19,157 @@ class UsuarioRepository extends ChangeNotifier {
     }
   }
 
-  Usuario? buscarPorEmail(String email) {
-    try {
-      return _usuarios.firstWhere(
-        (u) => u.email.toLowerCase() == email.toLowerCase().trim(),
+  Future<void> carregar() async {
+    final db = await AppDatabase.instance.database;
+    final resUsuarios = await db.query('usuarios');
+
+    List<Usuario> listaCarregada = [];
+
+    for (var uMap in resUsuarios) {
+      final uId = uMap['id'] as String;
+      final papelStr = uMap['papel'] as String;
+
+      // Busca os itens da agenda do usuário no SQLite
+      final resAgenda = await db.query(
+        'agenda',
+        where: 'aluno_id = ?',
+        whereArgs: [uId],
       );
-    } catch (_) {
-      return null;
+
+      List<DiaAluno> agendaAluno = [];
+      for (final diaEnum in DiasSemana.values) {
+        final regAgenda = resAgenda.firstWhere(
+          (a) => a['dia_semana'] == diaEnum.name,
+          orElse: () => {},
+        );
+
+        agendaAluno.add(
+          DiaAluno(
+            diaSemana: diaEnum.name,
+            treinoId: regAgenda['treino_id'] as String?,
+          ),
+        );
+      }
+
+      listaCarregada.add(
+        Usuario(
+          id: uId,
+          nome: uMap['nome'] as String,
+          email: uMap['email'] as String,
+          senha: uMap['senha'] as String,
+          papel: papelStr == 'personal' ? Papel.personal : Papel.aluno,
+          agenda: agendaAluno,
+        ),
+      );
     }
-  }
 
-  bool emailEmUso(String email, {String? ignorarId}) {
-    return _usuarios.any(
-      (u) =>
-          u.email.toLowerCase() == email.toLowerCase().trim() &&
-          u.id != ignorarId,
-    );
-  }
-
-  Future<void> salvarAluno(Usuario aluno) async {
-    if (aluno.papel != Papel.aluno) return;
-
-    if (aluno.agenda.isEmpty) {
-      aluno.agenda = agendaVazia();
-    }
-
-    await _database.salvarUsuario(aluno);
-    final index = _usuarios.indexWhere((u) => u.id == aluno.id);
-    if (index >= 0) {
-      _usuarios[index] = aluno;
-    } else {
-      _usuarios.add(aluno);
-    }
+    _usuarios = listaCarregada;
     notifyListeners();
+  }
+
+  Future<void> cadastrarAluno({
+    required String nome,
+    required String email,
+    required String senha,
+  }) async {
+    final db = await AppDatabase.instance.database;
+    final novoId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    // Insere usuário no SQLite
+    await db.insert('usuarios', {
+      'id': novoId,
+      'nome': nome,
+      'email': email,
+      'senha': senha,
+      'papel': 'aluno',
+    });
+
+    // Insere os dias padrão da agenda no SQLite
+    for (final diaEnum in DiasSemana.values) {
+      await db.insert('agenda', {
+        'id': '${novoId}_${diaEnum.name}',
+        'aluno_id': novoId,
+        'dia_semana': diaEnum.name,
+        'treino_id': null,
+      });
+    }
+
+    await carregar(); // Atualiza em memória do SQLite
+  }
+
+  Future<void> atualizarAluno({
+    required String id,
+    required String nome,
+    required String email,
+    required String senha,
+  }) async {
+    final db = await AppDatabase.instance.database;
+
+    await db.update(
+      'usuarios',
+      {
+        'nome': nome,
+        'email': email,
+        'senha': senha,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    await carregar();
   }
 
   Future<void> removerAluno(String id) async {
-    final usuario = buscarPorId(id);
-    if (usuario == null || usuario.papel != Papel.aluno) return;
-    await _database.removerUsuario(id);
-    _usuarios.removeWhere((u) => u.id == id);
-    notifyListeners();
+    final db = await AppDatabase.instance.database;
+
+    await db.delete('usuarios', where: 'id = ?', whereArgs: [id]);
+    await db.delete('agenda', where: 'aluno_id = ?', whereArgs: [id]);
+
+    await carregar();
   }
 
-  Future<void> atribuirTreinoAoDia(
-      String alunoId, String diaSemana, String? treinoId) async {
-    final aluno = buscarPorId(alunoId);
-    if (aluno == null || aluno.papel != Papel.aluno) return;
+  Future<void> atribuirTreinoAgenda({
+    required String alunoId,
+    required DiasSemana diaSemana,
+    required String? treinoId,
+  }) async {
+    final db = await AppDatabase.instance.database;
 
-    final agenda = aluno.agenda
-        .map((item) => DiaAluno(
-              diaSemana: item.diaSemana,
-              treinoId: item.diaSemana == diaSemana ? treinoId : item.treinoId,
-            ))
-        .toList();
-    if (!agenda.any((item) => item.diaSemana == diaSemana)) {
-      agenda.add(DiaAluno(diaSemana: diaSemana, treinoId: treinoId));
+    final reg = await db.query(
+      'agenda',
+      where: 'aluno_id = ? AND dia_semana = ?',
+      whereArgs: [alunoId, diaSemana.name],
+    );
+
+    if (reg.isNotEmpty) {
+      await db.update(
+        'agenda',
+        {'treino_id': treinoId},
+        where: 'aluno_id = ? AND dia_semana = ?',
+        whereArgs: [alunoId, diaSemana.name],
+      );
+    } else {
+      await db.insert('agenda', {
+        'id': '${alunoId}_${diaSemana.name}',
+        'aluno_id': alunoId,
+        'dia_semana': diaSemana.name,
+        'treino_id': treinoId,
+      });
     }
-    await _database.salvarUsuario(Usuario(
-      id: aluno.id,
-      nome: aluno.nome,
-      email: aluno.email,
-      senha: aluno.senha,
-      papel: aluno.papel,
-      agenda: agenda,
-    ));
-    aluno.agenda
-      ..clear()
-      ..addAll(agenda);
-    notifyListeners();
+
+    await carregar();
   }
 
-  /// Remove referências a um treino excluído das agendas dos alunos.
-  void limparReferenciasTreino(String treinoId) {
-    for (final aluno in alunos) {
-      for (final dia in aluno.agenda) {
-        if (dia.treinoId == treinoId) dia.treinoId = null;
-      }
-    }
-    notifyListeners();
+  Future<void> limparReferenciasTreino(String treinoId) async {
+    final db = await AppDatabase.instance.database;
+
+    await db.update(
+      'agenda',
+      {'treino_id': null},
+      where: 'treino_id = ?',
+      whereArgs: [treinoId],
+    );
+
+    await carregar();
   }
 }

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../app_state.dart';
 import '../core/constants/app_icons.dart';
 import '../core/helpers/app_functions.dart';
@@ -24,7 +26,19 @@ class TreinoDetalhePage extends StatelessWidget {
 
         if (treino == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Treino')),
+            appBar: AppBar(
+              title: const Text('Treino'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/personal/home');
+                  }
+                },
+              ),
+            ),
             body: const EmptyStateWidget(
               mensagem: 'Treino não encontrado.',
               icon: AppIcons.error,
@@ -35,13 +49,30 @@ class TreinoDetalhePage extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             title: Text(treino.titulo),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go(somenteLeitura ? '/aluno/home' : '/personal/home');
+                }
+              },
+            ),
             actions: [
-              if (!somenteLeitura)
+              if (!somenteLeitura) ...[
+                IconButton(
+                  icon: const Icon(AppIcons.edit),
+                  tooltip: 'Editar Nome/Foco do Treino',
+                  onPressed: () => context.go('/treinos/$treinoId/editar'),
+                ),
                 IconButton(
                   icon: const Icon(AppIcons.add),
                   tooltip: 'Adicionar Exercício',
-                  onPressed: () => context.go('/treinos/$treinoId/exercicios/novo'),
+                  onPressed: () =>
+                      context.go('/treinos/$treinoId/exercicios/novo'),
                 ),
+              ],
             ],
           ),
           body: ListView(
@@ -60,21 +91,29 @@ class TreinoDetalhePage extends StatelessWidget {
                             .titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      if (treino.descricao.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(treino.descricao),
-                      ],
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 20),
-              Text(
-                'Exercícios',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Exercícios Cadastrados (${treino.exercicios.length})',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  if (!somenteLeitura)
+                    TextButton.icon(
+                      icon: const Icon(AppIcons.add, size: 18),
+                      label: const Text('Novo Exercício'),
+                      onPressed: () =>
+                          context.go('/treinos/$treinoId/exercicios/novo'),
+                    ),
+                ],
               ),
               const SizedBox(height: 12),
               if (treino.exercicios.isEmpty)
@@ -95,11 +134,12 @@ class TreinoDetalhePage extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        '${ex.series} séries x ${ex.repeticoes} reps${ex.carga != null ? ' (${ex.carga} kg)' : ''}',
+                        'Grupo: ${ex.grupoMuscular} • ${ex.series} séries x ${ex.repeticoes} reps (${ex.carga} kg)',
                       ),
                       trailing: !somenteLeitura
                           ? IconButton(
                               icon: const Icon(AppIcons.delete, color: Colors.red),
+                              tooltip: 'Remover Exercício',
                               onPressed: () async {
                                 final confirmou = await AppFunctions.confirmarAcao(
                                   context,

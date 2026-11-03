@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../app_state.dart';
 import '../core/constants/app_icons.dart';
 import '../core/helpers/app_functions.dart';
 import '../core/widgets/app_widgets.dart';
@@ -14,15 +17,29 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _senhaController = TextEditingController();
 
-  void _submeterLogin() {
+  Future<void> _submeterLogin() async {
     if (_formKey.currentState!.validate()) {
       AppFunctions.mostrarSnackBar(context, 'Autenticando...');
-    } else {
-      AppFunctions.mostrarSnackBar(
-        context,
-        'Preencha os dados corretamente.',
-        ehErro: true,
+
+      final sessao = AppState.instance.sessao;
+      final sucesso = await sessao.login(
+        _emailController.text.trim(),
+        _senhaController.text.trim(),
       );
+
+      if (!mounted) return;
+
+      if (sucesso) {
+        AppFunctions.mostrarSnackBar(context, 'Login realizado com sucesso!');
+        // Direciona explicitamente com base no perfil autenticado
+        context.go(sessao.ehPersonal ? '/personal/home' : '/aluno/home');
+      } else {
+        AppFunctions.mostrarSnackBar(
+          context,
+          'E-mail ou senha inválidos.',
+          ehErro: true,
+        );
+      }
     }
   }
 

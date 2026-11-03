@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../app_state.dart';
-import '../models/dias_semana.dart';
+import '../core/constants/app_icons.dart';
+import '../core/helpers/app_functions.dart';
+import '../core/widgets/app_widgets.dart';
 
 class AlunoDetalhePage extends StatelessWidget {
   final String alunoId;
@@ -19,328 +21,123 @@ class AlunoDetalhePage extends StatelessWidget {
         final aluno = usuariosRepo.buscarPorId(alunoId);
         final colors = Theme.of(context).colorScheme;
 
-        if (aluno == null || !aluno.isAluno) {
+        if (aluno == null) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text(
-                'Aluno',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              title: const Text('Aluno'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/personal/home');
+                  }
+                },
               ),
-              backgroundColor: colors.primary,
-              foregroundColor: colors.onPrimary,
             ),
-            body: Center(
-              child: Text(
-                'Aluno não encontrado.',
-                style: TextStyle(color: colors.onSurfaceVariant),
-              ),
+            body: const EmptyStateWidget(
+              mensagem: 'Aluno não encontrado.',
+              icon: AppIcons.error,
             ),
           );
         }
 
-        final diasComTreino = aluno.agenda
-            .where(
-              (dia) =>
-                  dia.treinoId != null &&
-                  treinosRepo.buscarPorId(dia.treinoId!) != null,
-            )
-            .length;
-
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              aluno.nome,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            backgroundColor: colors.primary,
-            foregroundColor: colors.onPrimary,
+            title: Text(aluno.nome),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => context.go('/alunos'),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/personal/home');
+                }
+              },
             ),
             actions: [
               IconButton(
-                tooltip: 'Editar aluno',
-                icon: const Icon(Icons.edit),
+                icon: const Icon(AppIcons.edit),
+                tooltip: 'Editar Aluno',
                 onPressed: () => context.go('/alunos/$alunoId/editar'),
               ),
             ],
           ),
-          body: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  colors.primaryContainer,
-                  colors.surface,
-                  colors.secondaryContainer.withValues(alpha: 0.4),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                color: colors.secondaryContainer.withOpacity(0.4),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        aluno.nome,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(aluno.email),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Agenda Semanal',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(AppIcons.edit, size: 18),
+                    label: const Text('Atribuir Treino'),
+                    onPressed: () =>
+                        context.go('/alunos/$alunoId/atribuir-treino'),
+                  ),
                 ],
               ),
-            ),
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Card(
-                  elevation: 0,
-                  color: colors.surface.withValues(alpha: 0.94),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(color: colors.outlineVariant),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: colors.primary,
-                          child: Text(
-                            aluno.nome.substring(0, 1).toUpperCase(),
-                            style: TextStyle(
-                              color: colors.onPrimary,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+              const SizedBox(height: 12),
+              Card(
+                color: colors.surface.withOpacity(0.94),
+                child: Column(
+                  children: aluno.agenda.map((dia) {
+                    final treino = dia.treinoId != null
+                        ? treinosRepo.buscarPorId(dia.treinoId!)
+                        : null;
+                    return ListTile(
+                      title: Text(dia.diaSemana),
+                      subtitle: Text(
+                        treino?.titulo ?? 'Descanso',
+                        style: TextStyle(
+                          color: treino != null ? colors.primary : Colors.grey,
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                aluno.nome,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                aluno.email,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _AgendaSummary(
-                  trainingDays: diasComTreino,
-                  restDays: aluno.agenda.length - diasComTreino,
-                  colors: colors,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Agenda semanal',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Selecione um dia para atribuir ou alterar o treino.',
-                  style: TextStyle(color: colors.onSurfaceVariant),
-                ),
-                const SizedBox(height: 12),
-                ...aluno.agenda.map((dia) {
-                  final treino = dia.treinoId != null
-                      ? treinosRepo.buscarPorId(dia.treinoId!)
-                      : null;
-                  final rotulo =
-                      rotulosDiasSemana[dia.diaSemana] ?? dia.diaSemana;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _AgendaDayCard(
-                      dayLabel: rotulo,
-                      workoutTitle: treino?.titulo,
-                      colors: colors,
-                      onTap: () => context.go(
-                        '/alunos/$alunoId/dias/${dia.diaSemana}',
                       ),
-                    ),
-                  );
-                }),
-              ],
-            ),
+                      trailing: treino != null
+                          ? const Icon(Icons.chevron_right)
+                          : null,
+                      onTap: treino != null
+                          ? () => context.go(
+                                '/treinos/${treino.id}?somenteLeitura=true',
+                              )
+                          : null,
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
           ),
         );
       },
-    );
-  }
-}
-
-class _AgendaSummary extends StatelessWidget {
-  final int trainingDays;
-  final int restDays;
-  final ColorScheme colors;
-
-  const _AgendaSummary({
-    required this.trainingDays,
-    required this.restDays,
-    required this.colors,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: colors.surface.withValues(alpha: 0.94),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: colors.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: _AgendaSummaryItem(
-                icon: Icons.fitness_center,
-                value: '$trainingDays',
-                label: 'Dias com treino',
-                color: colors.primary,
-              ),
-            ),
-            Container(
-              height: 48,
-              width: 1,
-              color: colors.outlineVariant,
-            ),
-            Expanded(
-              child: _AgendaSummaryItem(
-                icon: Icons.weekend_outlined,
-                value: '$restDays',
-                label: 'Dias de descanso',
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AgendaSummaryItem extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-
-  const _AgendaSummaryItem({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: color),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: Theme.of(context)
-              .textTheme
-              .headlineSmall
-              ?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: color, fontSize: 12),
-        ),
-      ],
-    );
-  }
-}
-
-class _AgendaDayCard extends StatelessWidget {
-  final String dayLabel;
-  final String? workoutTitle;
-  final ColorScheme colors;
-  final VoidCallback onTap;
-
-  const _AgendaDayCard({
-    required this.dayLabel,
-    required this.workoutTitle,
-    required this.colors,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasWorkout = workoutTitle != null;
-
-    return Card(
-      elevation: 0,
-      color: colors.surface.withValues(alpha: 0.94),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: colors.outlineVariant),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: hasWorkout
-                    ? colors.primaryContainer
-                    : colors.surfaceContainerHighest,
-                child: Icon(
-                  hasWorkout ? Icons.fitness_center : Icons.weekend_outlined,
-                  color: hasWorkout
-                      ? colors.onPrimaryContainer
-                      : colors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      dayLabel,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      workoutTitle ?? 'Descanso',
-                      style: TextStyle(
-                        color: hasWorkout
-                            ? colors.onSurface
-                            : colors.onSurfaceVariant,
-                        fontWeight:
-                            hasWorkout ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: colors.primary),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

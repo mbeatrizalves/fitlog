@@ -1,25 +1,46 @@
 import 'package:flutter/material.dart';
+import '../database/app_database.dart';
+import '../models/papel.dart';
 import '../models/usuario.dart';
-import 'usuario_repository.dart';
 
 class SessaoRepository extends ChangeNotifier {
-  final UsuarioRepository usuarioRepository;
   Usuario? _usuarioAtual;
-
-  SessaoRepository(this.usuarioRepository);
 
   Usuario? get usuarioAtual => _usuarioAtual;
   bool get estaLogado => _usuarioAtual != null;
+  bool get ehPersonal => _usuarioAtual?.isPersonal ?? false;
 
-  /// Retorna null em caso de sucesso, ou mensagem de erro.
-  String? login(String email, String senha) {
-    final usuario = usuarioRepository.buscarPorEmail(email);
-    if (usuario == null || usuario.senha != senha) {
-      return 'E-mail ou senha inválidos.';
-    }
-    _usuarioAtual = usuario;
+  Future<void> carregar() async {
     notifyListeners();
-    return null;
+  }
+
+  Future<bool> login(String email, String senha) async {
+    final db = await AppDatabase.instance.database;
+
+    // Busca o usuário no banco de dados SQLite pelo e-mail e senha informados
+    final res = await db.query(
+      'usuarios',
+      where: 'LOWER(email) = ? AND senha = ?',
+      whereArgs: [email.trim().toLowerCase(), senha.trim()],
+    );
+
+    if (res.isNotEmpty) {
+      final uMap = res.first;
+      final papelStr = uMap['papel'] as String;
+
+      _usuarioAtual = Usuario(
+        id: uMap['id'] as String,
+        nome: uMap['nome'] as String,
+        email: uMap['email'] as String,
+        senha: uMap['senha'] as String,
+        papel: papelStr == 'personal' ? Papel.personal : Papel.aluno,
+      );
+
+      notifyListeners();
+      return true;
+    }
+
+    return false;
   }
 
   void logout() {
