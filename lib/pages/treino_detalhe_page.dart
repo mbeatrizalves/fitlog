@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../app_state.dart';
+import '../core/constants/app_icons.dart';
+import '../core/helpers/app_functions.dart';
+import '../core/widgets/app_widgets.dart';
 
 class TreinoDetalhePage extends StatelessWidget {
   final String treinoId;
@@ -14,377 +15,117 @@ class TreinoDetalhePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final repositorio = AppState.instance.treinos;
+    final treinosRepo = AppState.instance.treinos;
 
     return AnimatedBuilder(
-      animation: repositorio,
+      animation: treinosRepo,
       builder: (context, _) {
-        final treino = repositorio.buscarPorId(treinoId);
-        final colors = Theme.of(context).colorScheme;
-        final messenger = ScaffoldMessenger.of(context);
+        final treino = treinosRepo.buscarPorId(treinoId);
 
         if (treino == null) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text(
-                'Treino',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              backgroundColor: colors.primary,
-              foregroundColor: colors.onPrimary,
-            ),
-            body: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colors.primaryContainer,
-                    colors.surface,
-                    colors.secondaryContainer.withValues(alpha: 0.4),
-                  ],
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  'Treino não encontrado.',
-                  style: TextStyle(color: colors.onSurfaceVariant),
-                ),
-              ),
+            appBar: AppBar(title: const Text('Treino')),
+            body: const EmptyStateWidget(
+              mensagem: 'Treino não encontrado.',
+              icon: AppIcons.error,
             ),
           );
         }
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              treino.titulo,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            backgroundColor: colors.primary,
-            foregroundColor: colors.onPrimary,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () {
-                if (somenteLeitura) {
-                  context.go('/meu-treino');
-                } else {
-                  context.go('/treinos');
-                }
-              },
-            ),
+            title: Text(treino.titulo),
             actions: [
               if (!somenteLeitura)
                 IconButton(
-                  tooltip: 'Editar treino',
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => context.go('/treinos/$treinoId/editar'),
+                  icon: const Icon(AppIcons.add),
+                  tooltip: 'Adicionar Exercício',
+                  onPressed: () => context.go('/treinos/$treinoId/exercicios/novo'),
                 ),
             ],
           ),
-          body: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  colors.primaryContainer,
-                  colors.surface,
-                  colors.secondaryContainer.withValues(alpha: 0.4),
-                ],
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                  child: Card(
-                    elevation: 0,
-                    color: colors.surface.withValues(alpha: 0.94),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(color: colors.outlineVariant),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 28,
-                            backgroundColor: colors.primary,
-                            child: Icon(
-                              Icons.fitness_center,
-                              color: colors.onPrimary,
-                              size: 28,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  treino.titulo,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  treino.focado,
-                                  style: TextStyle(
-                                    color: colors.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                  child: Text(
-                    'Exercícios do treino',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Expanded(
-                  child: treino.exercicios.isEmpty
-                      ? _EmptyExercisesState(colors: colors)
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                          itemCount: treino.exercicios.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final exercicio = treino.exercicios[index];
-                            return _ExerciseCard(
-                              name: exercicio.nome,
-                              muscleGroup: exercicio.grupoMuscular,
-                              series: exercicio.series,
-                              repetitions: exercicio.repeticoes,
-                              load: exercicio.carga,
-                              colors: colors,
-                              readOnly: somenteLeitura,
-                              onEdit: () {
-                                context.go(
-                                  '/treinos/$treinoId/exercicios/${exercicio.id}',
-                                );
-                              },
-                              onDelete: () async {
-                                try {
-                                  await repositorio.removerExercicio(
-                                    treinoId,
-                                    exercicio.id,
-                                  );
-                                } catch (erro) {
-                                  if (!messenger.mounted) return;
-                                  messenger.showSnackBar(
-                                    SnackBar(
-                                        content: Text(
-                                            'Não foi possível remover o exercício: $erro')),
-                                  );
-                                }
-                              },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-          floatingActionButton: somenteLeitura
-              ? null
-              : FloatingActionButton(
-                  backgroundColor: colors.primary,
-                  foregroundColor: colors.onPrimary,
-                  tooltip: 'Adicionar exercício',
-                  child: const Icon(Icons.add),
-                  onPressed: () =>
-                      context.go('/treinos/$treinoId/exercicios/novo'),
-                ),
-        );
-      },
-    );
-  }
-}
-
-class _ExerciseCard extends StatelessWidget {
-  final String name;
-  final String muscleGroup;
-  final int series;
-  final int repetitions;
-  final double load;
-  final ColorScheme colors;
-  final bool readOnly;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  const _ExerciseCard({
-    required this.name,
-    required this.muscleGroup,
-    required this.series,
-    required this.repetitions,
-    required this.load,
-    required this.colors,
-    required this.readOnly,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: colors.surface.withValues(alpha: 0.94),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: colors.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: colors.primaryContainer,
-                  child: Icon(
-                    Icons.directions_run,
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name,
+                        'Foco: ${treino.focado}',
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        muscleGroup,
-                        style: TextStyle(color: colors.onSurfaceVariant),
-                      ),
+                      if (treino.descricao.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(treino.descricao),
+                      ],
                     ],
                   ),
                 ),
-                if (!readOnly) ...[
-                  IconButton(
-                    tooltip: 'Editar exercício',
-                    icon: Icon(Icons.edit_outlined, color: colors.primary),
-                    onPressed: onEdit,
-                  ),
-                  IconButton(
-                    tooltip: 'Excluir exercício',
-                    icon: Icon(Icons.delete_outline, color: colors.error),
-                    onPressed: onDelete,
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _ExerciseInfoChip(
-                  icon: Icons.repeat,
-                  label: '$series séries',
-                  colors: colors,
-                ),
-                _ExerciseInfoChip(
-                  icon: Icons.format_list_numbered,
-                  label: '$repetitions repetições',
-                  colors: colors,
-                ),
-                _ExerciseInfoChip(
-                  icon: Icons.fitness_center,
-                  label: '${load.toStringAsFixed(1)} kg',
-                  colors: colors,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExerciseInfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final ColorScheme colors;
-
-  const _ExerciseInfoChip({
-    required this.icon,
-    required this.label,
-    required this.colors,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 16, color: colors.onSecondaryContainer),
-      label: Text(label),
-      backgroundColor: colors.secondaryContainer,
-      side: BorderSide.none,
-      labelStyle: TextStyle(color: colors.onSecondaryContainer),
-    );
-  }
-}
-
-class _EmptyExercisesState extends StatelessWidget {
-  final ColorScheme colors;
-
-  const _EmptyExercisesState({required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.playlist_add,
-              size: 64,
-              color: colors.onSurfaceVariant,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Nenhum exercício cadastrado.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Adicione exercícios usando o botão +.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Exercícios',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              if (treino.exercicios.isEmpty)
+                const EmptyStateWidget(
+                  mensagem: 'Nenhum exercício cadastrado para este treino.',
+                  icon: AppIcons.exercise,
+                )
+              else
+                ...treino.exercicios.map((ex) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        child: Icon(AppIcons.exercise),
+                      ),
+                      title: Text(
+                        ex.nome,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        '${ex.series} séries x ${ex.repeticoes} reps${ex.carga != null ? ' (${ex.carga} kg)' : ''}',
+                      ),
+                      trailing: !somenteLeitura
+                          ? IconButton(
+                              icon: const Icon(AppIcons.delete, color: Colors.red),
+                              onPressed: () async {
+                                final confirmou = await AppFunctions.confirmarAcao(
+                                  context,
+                                  titulo: 'Remover Exercício',
+                                  mensagem: 'Deseja remover "${ex.nome}"?',
+                                );
+                                if (confirmou && context.mounted) {
+                                  await treinosRepo.removerExercicio(
+                                    treino.id,
+                                    ex.id,
+                                  );
+                                  AppFunctions.mostrarSnackBar(
+                                    context,
+                                    'Exercício removido.',
+                                  );
+                                }
+                              },
+                            )
+                          : null,
+                    ),
+                  );
+                }),
+            ],
+          ),
+        );
+      },
     );
   }
 }
