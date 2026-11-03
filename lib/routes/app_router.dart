@@ -13,17 +13,19 @@ import '../pages/treino_form_page.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/login',
-  refreshListenable: AppState.instance.sessao, // Essencial para atualizar as rotas ao mudar o estado de sessão
+  refreshListenable: AppState.instance, // Escuta o AppState completo (incluindo mudanças de sessão)
   redirect: (BuildContext context, GoRouterState state) {
     final sessao = AppState.instance.sessao;
     final estaLogado = sessao.estaLogado;
     final ehPersonal = sessao.ehPersonal;
     final indoParaLogin = state.matchedLocation == '/login';
 
-    // Se não estiver logado e tentar acessar outra rota, redireciona para login
-    if (!estaLogado && !indoParaLogin) return '/login';
+    // Se não estiver logado e não estiver na tela de login, redireciona para o login
+    if (!estaLogado && !indoParaLogin) {
+      return '/login';
+    }
 
-    // Se estiver logado e for para a tela de login, redireciona de acordo com o perfil
+    // Se estiver logado e tentar aceder ao login, redireciona automaticamente para o perfil correto
     if (estaLogado && indoParaLogin) {
       return ehPersonal ? '/personal/home' : '/aluno/home';
     }

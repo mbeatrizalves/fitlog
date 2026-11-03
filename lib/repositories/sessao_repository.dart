@@ -15,32 +15,37 @@ class SessaoRepository extends ChangeNotifier {
   }
 
   Future<bool> login(String email, String senha) async {
-    final db = await AppDatabase.instance.database;
+    try {
+      final db = await AppDatabase.instance.database;
 
-    // Busca o usuário no banco de dados SQLite pelo e-mail e senha informados
-    final res = await db.query(
-      'usuarios',
-      where: 'LOWER(email) = ? AND senha = ?',
-      whereArgs: [email.trim().toLowerCase(), senha.trim()],
-    );
-
-    if (res.isNotEmpty) {
-      final uMap = res.first;
-      final papelStr = uMap['papel'] as String;
-
-      _usuarioAtual = Usuario(
-        id: uMap['id'] as String,
-        nome: uMap['nome'] as String,
-        email: uMap['email'] as String,
-        senha: uMap['senha'] as String,
-        papel: papelStr == 'personal' ? Papel.personal : Papel.aluno,
+      // Consulta os utilizadores na base de dados SQLite local
+      final res = await db.query(
+        'usuarios',
+        where: 'LOWER(email) = ? AND senha = ?',
+        whereArgs: [email.trim().toLowerCase(), senha.trim()],
       );
 
-      notifyListeners();
-      return true;
-    }
+      if (res.isNotEmpty) {
+        final uMap = res.first;
+        final papelStr = uMap['papel'] as String;
 
-    return false;
+        _usuarioAtual = Usuario(
+          id: uMap['id'] as String,
+          nome: uMap['nome'] as String,
+          email: uMap['email'] as String,
+          senha: uMap['senha'] as String,
+          papel: papelStr == 'personal' ? Papel.personal : Papel.aluno,
+        );
+
+        notifyListeners();
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('Erro detalhado no login: $e');
+      return false;
+    }
   }
 
   void logout() {

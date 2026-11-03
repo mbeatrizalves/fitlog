@@ -21,6 +21,11 @@ class AppState extends ChangeNotifier {
     await treinos.carregar();
     await sessao.carregar();
 
+    // Ouve alterações na sessão para propagar o notifyListeners() globalmente para o GoRouter
+    sessao.addListener(() {
+      notifyListeners();
+    });
+
     _initialized = true;
     notifyListeners();
   }

@@ -18,6 +18,7 @@ class TreinoDetalhePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final treinosRepo = AppState.instance.treinos;
+    final ehPersonal = AppState.instance.sessao.ehPersonal;
 
     return AnimatedBuilder(
       animation: treinosRepo,
@@ -34,7 +35,8 @@ class TreinoDetalhePage extends StatelessWidget {
                   if (context.canPop()) {
                     context.pop();
                   } else {
-                    context.go('/personal/home');
+                    // Redireciona com base no papel real do usuário logado
+                    context.go(ehPersonal ? '/personal/home' : '/aluno/home');
                   }
                 },
               ),
@@ -55,7 +57,8 @@ class TreinoDetalhePage extends StatelessWidget {
                 if (context.canPop()) {
                   context.pop();
                 } else {
-                  context.go(somenteLeitura ? '/aluno/home' : '/personal/home');
+                  // CORREÇÃO: Usa o papel real do usuário logado para decidir a rota de retorno segura
+                  context.go(ehPersonal ? '/personal/home' : '/aluno/home');
                 }
               },
             ),
